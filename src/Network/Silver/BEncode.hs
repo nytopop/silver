@@ -1,14 +1,17 @@
 module Network.Silver.BEncode
   ( BVal
   , parseBVal
+  , packBVal
   ) where
 
 import Control.Applicative ((*>), (<$>), (<*), (<*>), (<|>))
 import Control.Monad
 import qualified Data.Attoparsec.ByteString.Char8 as A
 import Data.Attoparsec.ByteString.Char8 (Parser)
+import Data.Binary
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Map.Strict as M
 
 -- | A single bencoded value.
@@ -19,16 +22,15 @@ data BVal
   | BDict (M.Map BVal BVal)
   deriving (Show, Eq, Ord)
 
-{-
 instance Binary BVal where
-  put _ = put (BS.pack "hello there i'm a fake BVal")
+  put e = put (BS.concat $ BL.toChunks $ packBVal e)
   get = do
-    s <- get
-    case A.parse parseBVal s of
-      A.Fail _ _ _ -> fail "Failed with err"
-      A.Partial _ -> fail "Not enough input."
-      A.Done _ val -> return val
--}
+    xs <- get
+    case A.parseOnly parseBVal xs of
+      Left msg -> fail msg
+      Right val -> return val
+
+
 -- | Parse a BVal.
 parseBVal :: Parser BVal
 parseBVal =
@@ -72,3 +74,28 @@ parseBDict = BDict <$> M.fromList <$> ascP
       key <- parseBStr
       val <- parseBVal
       return (key, val)
+
+-- | Pack a BVal into a lazy ByteString.
+packBVal :: BVal -> BL.ByteString
+packBVal (BInt i) =
+  let prefix = BL.singleton 'i'
+      midfix = BL.pack (show i)
+      suffix = BL.singleton 'e'
+  in BL.concat [prefix, midfix, suffix]
+packBVal (BStr x) =
+  let midfix = BL.singleton ':'
+      suffix = BL.fromStrict x
+      prefix = BL.pack (show $ BL.length suffix)
+  in BL.concat [prefix, midfix, suffix]
+packBVal (BList xs) =
+  let prefix = BL.singleton 'l'
+      midfix = BL.concat $ map packBVal xs
+      suffix = BL.singleton 'e'
+  in BL.concat [prefix, midfix, suffix]
+packBVal (BDict asc) =
+  let xs = M.toAscList asc
+      fun (k, v) = BL.concat [packBVal k, packBVal v]
+      midfix = BL.concat $ map fun xs
+      prefix = BL.singleton 'd'
+      suffix = BL.singleton 'e'
+  in BL.concat [prefix, midfix, suffix]
