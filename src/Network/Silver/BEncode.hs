@@ -1,3 +1,16 @@
+{- |
+Module      :  Network.Silver.BEncode
+Description :  Bencoded ByteString serialization & deserialization.
+Copyright   :  (c) Eric Izoita 2017
+License     :  BSD3
+
+Maintainer  :  ericizoita@gmail.com
+Stability   :  experimental
+Portability :  portable
+
+This module handles the conversion of bencoded ByteStrings to BVals, and 
+conversion of BVals to bencoded ByteStrings. Parsers use Attoparsec.
+-}
 module Network.Silver.BEncode
   ( BVal
   , parseBVal
@@ -29,7 +42,6 @@ instance Binary BVal where
     case A.parseOnly parseBVal xs of
       Left msg -> fail msg
       Right val -> return val
-
 
 -- | Parse a BVal.
 parseBVal :: Parser BVal
@@ -92,8 +104,8 @@ packBVal (BList xs) =
       midfix = BL.concat $ map packBVal xs
       suffix = BL.singleton 'e'
   in BL.concat [prefix, midfix, suffix]
-packBVal (BDict asc) =
-  let xs = M.toAscList asc
+packBVal (BDict ds) =
+  let xs = M.toAscList ds
       fun (k, v) = BL.concat [packBVal k, packBVal v]
       midfix = BL.concat $ map fun xs
       prefix = BL.singleton 'd'
