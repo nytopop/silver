@@ -1,84 +1,74 @@
 module Network.Silver.BEncode
-  ( pBVal
+  ( BVal
+  , parseBVal
   ) where
 
-import Control.Applicative ((*>), (<$>), (<*), (<*>), (<|>), pure)
-import qualified Data.Attoparsec.Combinator as AC
-import qualified Data.Attoparsec.Text as A
-import Data.Attoparsec.Text (Parser)
-import qualified Data.Map as M
-import Data.Text (Text)
-import qualified Data.Text as T
+import Control.Applicative ((*>), (<$>), (<*), (<*>), (<|>))
+import Control.Monad
+import qualified Data.Attoparsec.ByteString.Char8 as A
+import Data.Attoparsec.ByteString.Char8 (Parser)
+import Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.Map.Strict as M
 
+-- | A single bencoded value.
 data BVal
   = BInt Integer
-  | BStr Text
+  | BStr ByteString
   | BList [BVal]
-  | BDict (M.Map Text BVal)
-  deriving (Show, Eq)
+  | BDict (M.Map BVal BVal)
+  deriving (Show, Eq, Ord)
 
+{-
+instance Binary BVal where
+  put _ = put (BS.pack "hello there i'm a fake BVal")
+  get = do
+    s <- get
+    case A.parse parseBVal s of
+      A.Fail _ _ _ -> fail "Failed with err"
+      A.Partial _ -> fail "Not enough input."
+      A.Done _ val -> return val
+-}
 -- | Parse a BVal.
-pBVal :: Parser BVal
-pBVal = pBInt <|> pBStr
+parseBVal :: Parser BVal
+parseBVal =
+  parseBInt <|> parseBStr <|> parseBList <|> parseBDict
 
 -- | Parse a BInt.
-pBInt :: Parser BVal
-pBInt = BInt <$> (intP *> int <* endP)
+parseBInt :: Parser BVal
+parseBInt = BInt <$> (intP *> int <* endP)
   where
-    intP = A.string (T.singleton 'i')
+    intP = A.string (BS.singleton 'i')
     int = toInteger <$> (A.signed A.decimal)
-    endP = A.string (T.singleton 'e')
+    endP = A.string (BS.singleton 'e')
 
 -- | Parse a BStr.
-pBStr :: Parser BVal
-pBStr = BStr <$> strP
-  where
-    strP = do
-      len <- A.decimal
-      A.string (T.singleton ':')
-      A.take (fromIntegral len :: Int)
+parseBStr :: Parser BVal
+parseBStr =
+  BStr <$> do
+    len <- A.decimal
+    A.string (BS.singleton ':')
+    A.take (fromIntegral len :: Int)
 
 -- | Parse a BList.
--- pBList :: Parser BVal
--- | Parse a BDict.
--- pBDict :: Parser BDict
-{-
-data LVal
-  = LListStart
-  | LDictStart
-  | LInt Integer
-  | LStr String
-  | LStop
-  deriving (Show, Eq)
--}
--- *************   OLD   *****************
-data Symbol
-  = ListBegin
-  | DictBegin
-  | SInt Integer
-  | Stop
-  | SStr String
-  deriving (Show)
+parseBList :: Parser BVal
+parseBList =
+  BList <$> do
+    A.string (BS.singleton 'l')
+    list <- A.many1 parseBVal
+    A.string (BS.singleton 'e')
+    return list
 
--- | Lexer
--- Converts a bencoded string to a list of symbols.
--- TODO : read
-tokenize :: String -> [Symbol]
-tokenize src =
-  case src of
-    ('l':rst) -> ListBegin : tokenize rst
-    ('d':rst) -> DictBegin : tokenize rst
-    xs@('i':_) ->
-      let raw = takeWhile (\x -> x /= 'e') xs
-          num = read (tail raw) :: Integer -- This might fail
-          rst = tail $ drop (length raw) xs -- this might fail
-      in SInt num : tokenize rst
-    ('e':rst) -> Stop : tokenize rst
-    [] -> []
-    xs ->
-      let rawBuf = takeWhile (\x -> x /= ':') xs
-          buf = read rawBuf :: Int -- this might fail
-          rawStr = tail $ drop (length rawBuf) xs -- this might fail
-          str = take buf rawStr -- this might fail
-          rst = drop buf rawStr -- 
-      in SStr str : tokenize rst
+-- | Parse a BDict.
+parseBDict :: Parser BVal
+parseBDict = BDict <$> M.fromList <$> ascP
+  where
+    ascP = do
+      A.string (BS.singleton 'd')
+      list <- A.many1 dictP
+      A.string (BS.singleton 'e')
+      return list
+    dictP = do
+      key <- parseBStr
+      val <- parseBVal
+      return (key, val)
