@@ -34,12 +34,6 @@ data BVal
   | BDict (Map BVal BVal)
   deriving (Show, Eq, Ord)
 
-instance Functor BVal where
-  fmap f (BInt x) = BInt (f x)
-  fmap f (BStr s) = BStr (f s)
-  fmap f (BList l) = BList (f l)
-  fmap f (BDict d) = BDict (f d)
-
 -- | Encode a BVal into a ByteString.
 bEncode :: BVal -> ByteString
 bEncode (BInt i) =
