@@ -87,34 +87,23 @@ bInt = do
 -- | Parse a BStr.
 -- TODO : disallow leading zeroes
 bStr :: Parser BVal
-bStr = BStr <$> strP
-  where
-    strP = do
-      len <- A.decimal
-      A.char ':'
-      A.take (fromIntegral len :: Int)
+bStr =
+  let bufP = A.decimal <* A.char ':'
+      strP = do
+        len <- bufP
+        A.take (fromIntegral len :: Int)
+  in BStr <$> strP
 
 -- | Parse a BList.
 bList :: Parser BVal
-bList = BList <$> listP
-  where
-    listP = do
-      A.char 'l'
-      list <- A.many1 bVal
-      A.char 'e'
-      return list
+bList =
+  let listP = A.char 'l' *> A.many1 bVal <* A.char 'e'
+  in BList <$> listP
 
 -- | Parse a BDict.
 -- TODO : ensure keys are sorted
 bDict :: Parser BVal
-bDict = BDict <$> M.fromList <$> ascP
-  where
-    ascP = do
-      A.char 'd'
-      list <- A.many1 dictP
-      A.char 'e'
-      return list
-    dictP = do
-      key <- bStr
-      val <- bVal
-      return (key, val)
+bDict =
+  let ascP = A.char 'd' *> A.many1 dictP <* A.char 'e'
+      dictP = (\a b -> (a, b)) <$> bStr <*> bVal
+  in BDict <$> M.fromList <$> ascP
