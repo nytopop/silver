@@ -27,7 +27,7 @@ import Network.Silver.BEncode (BVal(..), bDecode, bEncode)
 import System.IO (FilePath)
 
 -- | A verified meta info.
-data MetaInfo =
+newtype MetaInfo =
   MetaInfo BVal
   deriving (Show, Eq)
 
