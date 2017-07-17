@@ -12,102 +12,107 @@ This module handles the conversion of bencoded ByteStrings to BVals, and
 conversion of BVals to bencoded ByteStrings. Parsers use Attoparsec.
 -}
 module Network.Silver.BEncode
-  ( BVal
-  , parseBVal
-  , packBVal
+  ( BVal(..)
+  , bEncode
+  , bDecode
   ) where
 
 import Control.Applicative ((*>), (<$>), (<*), (<*>), (<|>))
 import Control.Monad
 import qualified Data.Attoparsec.ByteString.Char8 as A
 import Data.Attoparsec.ByteString.Char8 (Parser)
-import Data.Binary
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.Map.Strict as M
+import Data.Map.Strict (Map)
 
 -- | A single bencoded value.
 data BVal
   = BInt Integer
   | BStr ByteString
   | BList [BVal]
-  | BDict (M.Map BVal BVal)
+  | BDict (Map BVal BVal)
   deriving (Show, Eq, Ord)
 
-instance Binary BVal where
-  put e = put (BS.concat $ BL.toChunks $ packBVal e)
-  get = do
-    xs <- get
-    case A.parseOnly parseBVal xs of
-      Left msg -> fail msg
-      Right val -> return val
+-- | Encode a BVal into a ByteString.
+bEncode :: BVal -> ByteString
+bEncode (BInt i) =
+  let prefix = BS.singleton 'i'
+      midfix = BS.pack (show i)
+      suffix = BS.singleton 'e'
+  in BS.concat [prefix, midfix, suffix]
+bEncode (BStr x) =
+  let midfix = BS.singleton ':'
+      prefix = BS.pack (show $ BS.length x)
+  in BS.concat [prefix, midfix, x]
+bEncode (BList xs) =
+  let prefix = BS.singleton 'l'
+      midfix = BS.concat $ map bEncode xs
+      suffix = BS.singleton 'e'
+  in BS.concat [prefix, midfix, suffix]
+bEncode (BDict ds) =
+  let xs = M.toAscList ds
+      fun (k, v) = BS.concat [bEncode k, bEncode v]
+      midfix = BS.concat $ map fun xs
+      prefix = BS.singleton 'd'
+      suffix = BS.singleton 'e'
+  in BS.concat [prefix, midfix, suffix]
+
+-- | Decode a BVal from a ByteString.
+bDecode :: ByteString -> Either String BVal
+bDecode xs =
+  case A.parseOnly bVal xs of
+    Left msg -> Left "Failed to decode!"
+    Right val -> Right val
 
 -- | Parse a BVal.
-parseBVal :: Parser BVal
-parseBVal =
-  parseBInt <|> parseBStr <|> parseBList <|> parseBDict
+bVal :: Parser BVal
+bVal = bInt <|> bStr <|> bList <|> bDict
 
 -- | Parse a BInt.
-parseBInt :: Parser BVal
-parseBInt = BInt <$> (intP *> int <* endP)
+bInt :: Parser BVal
+bInt = do
+  A.char 'i'
+  sign <- A.option ' ' (A.char '-')
+  val <- A.many1 A.digit
+  A.char 'e'
+  mkInt sign val
   where
-    intP = A.string (BS.singleton 'i')
-    int = toInteger <$> (A.signed A.decimal)
-    endP = A.string (BS.singleton 'e')
+    mkInt ' ' ['0'] = return $ BInt 0
+    mkInt '-' ('0':rst) = fail "Negative zero!"
+    mkInt _ ('0':rst) = fail "Leading zero(s)!"
+    mkInt '-' nums = return $ BInt $ read ('-' : nums)
+    mkInt _ nums = return $ BInt $ read nums
 
 -- | Parse a BStr.
-parseBStr :: Parser BVal
-parseBStr =
+-- TODO : disallow leading zeroes
+bStr :: Parser BVal
+bStr =
   BStr <$> do
     len <- A.decimal
-    A.string (BS.singleton ':')
+    A.char ':'
     A.take (fromIntegral len :: Int)
 
 -- | Parse a BList.
-parseBList :: Parser BVal
-parseBList =
+bList :: Parser BVal
+bList =
   BList <$> do
-    A.string (BS.singleton 'l')
-    list <- A.many1 parseBVal
-    A.string (BS.singleton 'e')
+    A.char 'l'
+    list <- A.many1 bVal
+    A.char 'e'
     return list
 
 -- | Parse a BDict.
-parseBDict :: Parser BVal
-parseBDict = BDict <$> M.fromList <$> ascP
+-- TODO : ensure keys are sorted
+bDict :: Parser BVal
+bDict = BDict <$> M.fromList <$> ascP
   where
     ascP = do
-      A.string (BS.singleton 'd')
+      A.char 'd'
       list <- A.many1 dictP
-      A.string (BS.singleton 'e')
+      A.char 'e'
       return list
     dictP = do
-      key <- parseBStr
-      val <- parseBVal
+      key <- bStr
+      val <- bVal
       return (key, val)
-
--- | Pack a BVal into a lazy ByteString.
-packBVal :: BVal -> BL.ByteString
-packBVal (BInt i) =
-  let prefix = BL.singleton 'i'
-      midfix = BL.pack (show i)
-      suffix = BL.singleton 'e'
-  in BL.concat [prefix, midfix, suffix]
-packBVal (BStr x) =
-  let midfix = BL.singleton ':'
-      suffix = BL.fromStrict x
-      prefix = BL.pack (show $ BL.length suffix)
-  in BL.concat [prefix, midfix, suffix]
-packBVal (BList xs) =
-  let prefix = BL.singleton 'l'
-      midfix = BL.concat $ map packBVal xs
-      suffix = BL.singleton 'e'
-  in BL.concat [prefix, midfix, suffix]
-packBVal (BDict ds) =
-  let xs = M.toAscList ds
-      fun (k, v) = BL.concat [packBVal k, packBVal v]
-      midfix = BL.concat $ map fun xs
-      prefix = BL.singleton 'd'
-      suffix = BL.singleton 'e'
-  in BL.concat [prefix, midfix, suffix]
