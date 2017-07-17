@@ -15,7 +15,6 @@ A bittorrent implementation in Haskell. This project aims to be a robust impleme
 - [ ] 11 [Peer Exchange (PEX)](http://www.bittorrent.org/beps/bep_0011.html)
 - [ ] 12 [Multitracker Metadata Extension](http://www.bittorrent.org/beps/bep_0012.html)
 - [ ] 14 [Local Service Discovery](http://www.bittorrent.org/beps/bep_0014.html)
-
 - [ ] 15 [UDP Tracker Protocol](http://www.bittorrent.org/beps/bep_0015.html)
 - [ ] 19 [HTTP/FTP Seeding (GetRight-style)](http://www.bittorrent.org/beps/bep_0019.html)
 - [ ] 23 [Tracker Returns Compact Peer Lists](http://www.bittorrent.org/beps/bep_0023.html)
