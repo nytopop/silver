@@ -23,7 +23,7 @@ import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map, (!))
-import Network.Silver.BEncode (BVal(..), bDecode, bEncode)
+import Network.Silver.BEncode (BVal(..), bDecode, bEncode, key)
 import System.IO (FilePath)
 
 -- | A verified meta info.
@@ -43,7 +43,7 @@ decodeMeta xs =
   case bDecode xs of
     Left msg -> Left msg
     Right val ->
-      case checkMeta val of
+      case isMetaInfo val of
         False -> Left "Invalid MetaInfo!"
         True -> Right $ MetaInfo val
 
@@ -63,13 +63,13 @@ key :: String -> BVal
 key = BStr . BS.pack
 
 -- | Check whether a BVal is a non-empty BStr.
-checkStr :: BVal -> Bool
-checkStr (BStr s) = BS.length s > 0
-checkStr _ = False
+isBStr :: BVal -> Bool
+isBStr (BStr s) = BS.length s > 0
+isBStr _ = False
 
 -- | Check whether a BVal is a valid FileDict.
-checkFile :: BVal -> Bool
-checkFile (BDict f) =
+isFileDict :: BVal -> Bool
+isFileDict (BDict f) =
   let l =
         case M.lookup (key "length") f of
           Nothing -> False
@@ -79,14 +79,14 @@ checkFile (BDict f) =
           Nothing -> False
           Just (BList []) -> False
           Just (BList xs) ->
-            let items = map checkStr xs
+            let items = map isBStr xs
             in foldr (&&) True items
   in l && p
-checkFile _ = False
+isFileDict _ = False
 
 -- | Check whether a BVal is a valid InfoDict.
-checkInfo :: BVal -> Bool
-checkInfo (BDict i) =
+isInfoDict :: BVal -> Bool
+isInfoDict (BDict i) =
   let n =
         case M.lookup (key "name") i of
           Nothing -> False
@@ -107,15 +107,15 @@ checkInfo (BDict i) =
         case M.lookup (key "files") i of
           Nothing -> False
           Just (BList ld) ->
-            let items = map checkFile ld
+            let items = map isFileDict ld
             in foldr (&&) True items
       xor a b = (a || b) && not (a && b)
   in n && pl && p && (xor l f)
-checkInfo _ = False
+isInfoDict _ = False
 
 -- | Check whether a BVal is a valid MetaInfo.
-checkMeta :: BVal -> Bool
-checkMeta (BDict m) =
+isMetaInfo :: BVal -> Bool
+isMetaInfo (BDict m) =
   let announce =
         case M.lookup (key "announce") m of
           Nothing -> False
@@ -123,6 +123,6 @@ checkMeta (BDict m) =
       info =
         case M.lookup (key "info") m of
           Nothing -> False
-          Just i -> checkInfo i
+          Just i -> isInfoDict i
   in announce && info
-checkMeta _ = False
+isMetaInfo _ = False
