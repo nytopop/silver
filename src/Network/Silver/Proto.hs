@@ -13,3 +13,6 @@ This module handles the bittorrent peer protocol.
 module Network.Silver.Proto
   (
   ) where
+
+import Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as BS
