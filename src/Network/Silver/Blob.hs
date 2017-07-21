@@ -24,13 +24,14 @@ import System.IO
        (FilePath, IOMode(ReadMode, ReadWriteMode), SeekMode(AbsoluteSeek),
         hClose, hSeek, hSetFileSize, openFile)
 
+-- | Abstracts a piece indexed, file delineated binary storage mechanism.
 data Blob =
   Blob Integer -- piece length
-       [File] -- files list
+       [File]
   deriving (Show, Eq)
 
 data File =
-  File FilePath -- file path
+  File FilePath
        Integer -- file length
   deriving (Show, Eq)
 

@@ -11,47 +11,78 @@ Portability :  portable
 -}
 module Network.Silver.Torrent
   ( Torrent
-  , Piece
+  , PieceHash
   , PieceData
   ) where
 
+import Control.Concurrent.STM.TVar (TVar)
+import Control.Monad.STM ()
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
+import Data.Set (Set)
 import Network.Silver.BEncode (key)
+import Network.Silver.Blob (Blob, bGetPiece, bPutPiece, mkBlob)
 import Network.Silver.Meta (MetaInfo)
 import Network.Silver.Proto (Peer)
-import System.IO
+import Network.Socket (SockAddr)
 
 -- | TORRENT PROCESS
---   1. load a metainfo file
---   2. create or open file handles for torrent
---   3. start a listener for incoming connections
---      the listener should have access to the Blob + MetaInfo + PeerID
---   4. obtain peer list from tracker or dht
---   5. create a PeerCloud from the peer list
---   6. use PeerCloud to obtain pieces from peers
---   7. verify each piece, then write to Blob
---   8. when blob is complete, you're done and can remove
---         peer cloud
+--   1. decode metainfo
+--   2. allocate a blob
+--   2.5. scan blob for verified pieces
+--        construct a set of available / unavailable pieces
+--   3. generate a random peer id
+--   4. start a listening socket
+--   5. create peer cloud from tracker(s) <|> DHT
+--      refresh periodically
+--   6. obtain unavailable pieces from peers
+--      verify piece
+--      write to blob
+--      verify from blob
+--      add to available set, remove from unavailable 
+--   7. continue seeding 
+--      ad infinitum <|> until ratio <|> until time
 --
+--   DESIGN DECISIONS
+--   1. every torrent must have a unique sockaddr
+--      it suffices to use a different port
+--   2. every torrent must have a unique peer id
+--
+-- Torrent minfo blob pieces (avail, navail) sockaddr
 data Torrent =
-  Torrent MetaInfo -- Metainfo for torrent
-          Integer -- downloaded bytes
-          Integer -- uploaded bytes
-          Integer -- remaining bytes
-          (Map Int Piece) -- piece map
+  Torrent MetaInfo
+          Blob
+          [PieceHash]
+          (Set PieceHash, Set PieceHash) -- (avail, not avail)
+          SockAddr
+          ByteString -- peer id
   deriving (Show, Eq)
 
-type Piece = ByteString
+type PieceHash = ByteString
 
 type PieceData = ByteString
--- | Construct a piece map from MetaInfo.
---mkPieceMap :: MetaInfo -> Map Int Piece
--- | Construct an info hash from MetaInfo.
---mkInfoHash :: MetaInfo -> ByteString
+
+-- | Download a torrent.
+--
+-- This function will block until all pieces are downloaded.
+dl :: Torrent -> IO ()
+dl t = print 0
+
+-- | Download and seed a torrent.
+--
+-- This function will block forever.
+dls :: Torrent -> IO ()
+dls t = print 0
+
 -- | Verify a piece.
---isValidPiece :: Piece -> PieceData -> Bool
--- | Check the availability of a network map.
---availability :: Map Int [Peer] -> Float
+--
+-- hash piecedata, equality test
+verifyP :: PieceHash -> PieceData -> Bool
+verifyP _ _ = True
+
+-- | Get availability of verified pieces in blob.
+--
+-- Note : Data within blob that does not hash correctly will be
+-- treated as empty space in the resulting availability sets.
+availB :: Blob -> [PieceHash] -> Maybe (Set PieceHash, Set PieceHash)
+availB blob hashes = Nothing
