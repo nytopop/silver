@@ -15,12 +15,14 @@ module Network.Silver.Blob
   , bPutPiece
   ) where
 
-import Control.Monad (sequence_)
+import Control.Monad (sequence, sequence_)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Network.Silver.BEncode (BVal(..))
 import Network.Silver.Meta (MetaInfo(..))
 import System.IO
+       (FilePath, IOMode(ReadMode, ReadWriteMode), SeekMode(AbsoluteSeek),
+        hClose, hSeek, hSetFileSize, openFile)
 
 data Blob =
   Blob Integer -- piece length
@@ -28,15 +30,16 @@ data Blob =
   deriving (Show, Eq)
 
 data File =
-    File FilePath -- file path
+  File FilePath -- file path
        Integer -- file length
   deriving (Show, Eq)
 
 -- TODO
 -- | Allocate a blob from metainfo data.
--- If this is a single file torrent, (length key)
---   we set the filename and length
---   return $ Blob name length
+--   1. get piece size from metainfo
+--   2. get a single file length + path
+--      <|> get multiple file lengths + paths
+--   3. allocate disk space for all files (hSetFileSize)
 mkBlob :: Blob
 mkBlob = Blob 256 [File "foo" 512, File "bar" 256, File "baz" 256]
 
