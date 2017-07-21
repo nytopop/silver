@@ -52,11 +52,16 @@ mkBlob = Blob 256 [File "foo" 512, File "bar" 256, File "baz" 256]
 -- fSplit files byte_offset byte_length
 --  -> [ (file, byte_offset, byte_length) ... ]
 --
--- If the list of files does not have at least byte_length bytes, a runtime
--- exception will be triggered.
+-- A runtime exception will be triggered if:
+--   files does not have at least byte_length byte capacity
+--   byte_offset < 0
+--   byte_length < 0
 fSplit :: [File] -> Integer -> Integer -> [(File, Integer, Integer)]
+fSplit _ _ 0 = []
 fSplit [] _ _ = error "Not enough allocated space!"
 fSplit (f@(File _ len):fs) idx dLen
+  | idx < 0 = error "Negative index!"
+  | dLen < 0 = error "Negative data length!"
   | idx < len =
     let endIdx = idx + dLen
         takeN = len - idx
