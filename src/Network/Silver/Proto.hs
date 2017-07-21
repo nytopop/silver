@@ -11,42 +11,44 @@ Portability :  portable
 This module handles the bittorrent peer protocol.
 -}
 module Network.Silver.Proto
-  (
+  ( Peer
   ) where
 
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Network.Silver.Torrent (Piece, PieceData, Torrent)
-import Network.Socket (SockAddr)
+import Network.Socket (SockAddr, Socket)
 
--- | An active client.
-data Client =
-  Client ByteString -- peer id
-         SockAddr -- listening socket
-         [Torrent] -- active torrents
+data PeerCloud =
+  PeerCloud ByteString -- peer id
+            ByteString -- info hash
+            [Peer] -- known peer list .. (set might be better)
   deriving (Show, Eq)
 
--- | An associated peer.
 data Peer =
   Peer ByteString -- peer id
-       PeerProto -- peer's protocol
-       ByteString -- ip addr or dns name
-       Int -- port
-       PeerStatus -- peer's status
+       SockAddr -- addr
   deriving (Show, Eq)
 
--- | Peer protocol type.
-data PeerProto
-  = TCP
-  | UTP
+data PeerStatus
+  = Dead
+  | Alive Bool -- choked
+          Bool -- interested
   deriving (Show, Eq)
 
--- | Peer status.
-data PeerStatus =
-  PeerStatus Bool -- choked
-             Bool -- interested
+data PeerConn =
+  PeerConn Socket -- active socket
+           SockAddr -- addr
+  deriving (Show, Eq)
+
+--peerInsert :: PeerCloud -> Peer -> PeerCloud
+--peerDelete :: PeerCloud -> Peer -> PeerCloud
+--cGetPiece :: PeerCloud -> Int -> IO ByteString
+-- | Return value of a message.
+data MessageStatus
+  = MsgFail
+  | MsgSuccess
   deriving (Show, Eq)
 
 -- | Protocol message.
@@ -67,16 +69,3 @@ data Message
               Int -- begin byte offset
               Int -- length
   deriving (Show, Eq)
-
--- | *** Piece Discovery
--- | Check if a peer has a piece.
-hasPiece :: Piece -> Peer -> IO Bool
--- | Get a list of peers with a piece.
-withPiece :: Piece -> [Peer] -> IO [Peer]
--- | Get a mapping of pieces to available peers.
-getPieceMap :: Map Int Piece -> [Peer] -> IO (Map Int [Peer])
--- | ***
--- | Verify a piece.
-isValidPiece :: Piece -> PieceData -> Bool
--- | Try to obtain a piece from a peer.
-getPiece :: Piece -> Peer -> IO (Maybe PieceData)

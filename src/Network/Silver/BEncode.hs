@@ -15,6 +15,7 @@ module Network.Silver.BEncode
   ( BVal(..)
   , bEncode
   , bDecode
+  , key
   ) where
 
 import Control.Applicative ((*>), (<$>), (<*), (<*>), (<|>))
@@ -33,6 +34,10 @@ data BVal
   | BList [BVal]
   | BDict (Map BVal BVal)
   deriving (Show, Eq, Ord)
+
+-- | Convenience function to pack string as BStr.
+key :: String -> BVal
+key = BStr . BS.pack
 
 -- | Encode a BVal into a ByteString.
 bEncode :: BVal -> ByteString

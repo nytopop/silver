@@ -17,3 +17,4 @@ module Network.Silver.Tracker
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Network.Silver.Meta
+import Network.Silver.Proto (Peer)

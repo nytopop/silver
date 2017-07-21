@@ -11,7 +11,7 @@ Portability :  portable
 This module handles validation and reading of metainfo files.
 -}
 module Network.Silver.Meta
-  ( MetaInfo
+  ( MetaInfo(..)
   , decodeMetaFile
   , decodeMeta
   , infoHash
@@ -57,10 +57,6 @@ infoHash (MetaInfo (BDict m)) =
   let i = m ! (key "info")
       s = bEncode i
   in (BS.pack . show . sha1) s
-
--- | Convenience method. Evaluates to a BStr of the provided String.
-key :: String -> BVal
-key = BStr . BS.pack
 
 -- | Check whether a BVal is a non-empty BStr.
 isBStr :: BVal -> Bool
