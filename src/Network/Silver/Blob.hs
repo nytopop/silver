@@ -18,13 +18,19 @@ module Network.Silver.Blob
 import Control.Monad (sequence, sequence_)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
-import Network.Silver.BEncode (BVal(..))
+import qualified Data.Map.Strict as M
+import Data.Map.Strict (Map, (!))
+import Network.Silver.BEncode (BVal(..), key)
 import Network.Silver.Meta (MetaInfo(..))
+import qualified System.FilePath.Posix as SF
 import System.IO
        (FilePath, IOMode(ReadMode, ReadWriteMode), SeekMode(AbsoluteSeek),
         hClose, hSeek, hSetFileSize, openFile)
 
 -- | Abstracts a piece indexed, file delineated binary storage mechanism.
+-- TODO : Dynamic space allocation
+--        during the file write process
+--        mkBlob becomes a pure function
 data Blob =
   Blob Integer -- piece length
        [File]
@@ -35,14 +41,32 @@ data File =
        Integer -- file length
   deriving (Show, Eq)
 
--- TODO
--- | Allocate a blob from metainfo data.
---   1. get piece size from metainfo
---   2. get a single file length + path
---      <|> get multiple file lengths + paths
---   3. allocate disk space for all files (hSetFileSize)
-mkBlob :: Blob
-mkBlob = Blob 256 [File "foo" 512, File "bar" 256, File "baz" 256]
+-- | Make a blob.
+mkBlob :: MetaInfo -> Blob
+mkBlob (MetaInfo (BDict mi)) =
+  let (BStr name) = mi ! (key "name")
+      (BInt pLen) = mi ! (key "piece length")
+      len = M.lookup (key "length") mi
+      files = M.lookup (key "files") mi
+      fxs =
+        case (len, files) of
+          (Just (BInt x), Nothing) -> File (BS.unpack name) x : []
+          (Nothing, Just (BList fs)) -> mkMulti name fs
+  in Blob pLen fxs
+
+-- | Make a file list.
+mkMulti :: ByteString -> [BVal] -> [File]
+mkMulti name [] = []
+mkMulti name ((BDict x):xs) =
+  let (BInt len) = x ! (key "length")
+      (BList paths) = x ! (key "path")
+      path = SF.joinPath $ mkPaths paths
+  in File path len : mkMulti name xs
+
+mkPaths :: [BVal] -> [FilePath]
+mkPaths [] = []
+mkPaths ((BStr f):fs) = BS.unpack f : mkPaths fs
+mkPaths _ = []
 
 -- | Given a list of files, a starting byte offset, and number of bytes 
 -- to distribute, fSplit returns a list of files that make up the data 
