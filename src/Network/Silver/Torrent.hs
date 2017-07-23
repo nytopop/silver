@@ -17,12 +17,17 @@ module Network.Silver.Torrent
 
 import Control.Concurrent.STM.TVar (TVar)
 import Control.Monad.STM ()
+import Crypto.Hash (Digest, hash)
+import Crypto.Hash.Algorithms (SHA1)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
+import Data.Map.Strict (Map, (!))
+import qualified Data.Map.Strict as M
 import Data.Set (Set)
-import Network.Silver.BEncode (key)
+import qualified Data.Set as S
+import Network.Silver.BEncode (BVal(..), bEncode, key)
 import Network.Silver.Blob (Blob, bGetPiece, bPutPiece, mkBlob)
-import Network.Silver.Meta (MetaInfo)
+import Network.Silver.Meta (MetaInfo(..), decodeMeta)
 import Network.Silver.Proto (Peer)
 import Network.Socket (SockAddr)
 
@@ -52,15 +57,41 @@ import Network.Socket (SockAddr)
 data Torrent =
   Torrent MetaInfo
           Blob
+          ByteString -- info hash
           [PieceHash]
           (Set PieceHash, Set PieceHash) -- (avail, not avail)
-          SockAddr
-          ByteString -- peer id
+     --     SockAddr
+       --   ByteString -- peer id
   deriving (Show, Eq)
 
 type PieceHash = ByteString
 
 type PieceData = ByteString
+
+-- | Load a torrent from metainfo.
+-- this should probably be in IO
+--  availB
+-- listening socket
+-- random peer id
+mkTorrent :: MetaInfo -> Torrent
+mkTorrent meta =
+  let blob = mkBlob meta
+      info = infoHash meta
+      pieces = pieceList meta
+      avail = availB blob pieces
+  in Torrent meta blob info pieces avail
+
+-- | Generate a SHA1 info_hash from MetaInfo.
+infoHash :: MetaInfo -> ByteString
+infoHash (MetaInfo (BDict m)) =
+  let sha1 :: ByteString -> Digest SHA1
+      sha1 = hash
+      s = bEncode (m ! (key "info"))
+  in (BS.pack . show . sha1) s
+
+-- | Extract piece list from MetaInfo.
+pieceList :: MetaInfo -> [PieceHash]
+pieceList _ = []
 
 -- | Download a torrent.
 --
@@ -84,5 +115,5 @@ verifyP _ _ = True
 --
 -- Note : Data within blob that does not hash correctly will be
 -- treated as empty space in the resulting availability sets.
-availB :: Blob -> [PieceHash] -> Maybe (Set PieceHash, Set PieceHash)
-availB blob hashes = Nothing
+availB :: Blob -> [PieceHash] -> (Set PieceHash, Set PieceHash)
+availB blob hashes = (S.empty, S.empty)

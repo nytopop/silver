@@ -14,11 +14,11 @@ module Network.Silver.Meta
   ( MetaInfo(..)
   , decodeMetaFile
   , decodeMeta
-  , infoHash
+  , isFileDict
+  , isInfoDict
+  , isMetaInfo
   ) where
 
-import Crypto.Hash
-import Crypto.Hash.Algorithms (SHA1)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map.Strict as M
@@ -46,17 +46,6 @@ decodeMeta xs =
       case isMetaInfo val of
         False -> Left "Invalid MetaInfo!"
         True -> Right $ MetaInfo val
-
--- | SHA1 hashing
-sha1 :: ByteString -> Digest SHA1
-sha1 = hash
-
--- | Generate a SHA1 info_hash from MetaInfo.
-infoHash :: MetaInfo -> ByteString
-infoHash (MetaInfo (BDict m)) =
-  let i = m ! (key "info")
-      s = bEncode i
-  in (BS.pack . show . sha1) s
 
 -- | Check whether a BVal is a non-empty BStr.
 isBStr :: BVal -> Bool
