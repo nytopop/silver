@@ -44,10 +44,11 @@ data File =
 -- | Make a blob.
 mkBlob :: MetaInfo -> Blob
 mkBlob (MetaInfo (BDict mi)) =
-  let (BStr name) = mi ! (key "name")
-      (BInt pLen) = mi ! (key "piece length")
-      len = M.lookup (key "length") mi
-      files = M.lookup (key "files") mi
+  let (BDict inf) = mi ! (key "info")
+      (BStr name) = inf ! (key "name")
+      (BInt pLen) = inf ! (key "piece length")
+      len = M.lookup (key "length") inf
+      files = M.lookup (key "files") inf
       fxs =
         case (len, files) of
           (Just (BInt x), Nothing) -> File (BS.unpack name) x : []
