@@ -32,36 +32,26 @@ import Network.Silver.Proto (Peer)
 import Network.Socket (SockAddr)
 
 -- | TORRENT PROCESS
---   1. decode metainfo
---   2. allocate a blob
---   2.5. scan blob for verified pieces
---        construct a set of available / unavailable pieces
---   3. generate a random peer id
---   4. start a listening socket
---   5. create peer cloud from tracker(s) <|> DHT
---      refresh periodically
---   6. obtain unavailable pieces from peers
---      verify piece
---      write to blob
---      verify from blob
---      add to available set, remove from unavailable 
---   7. continue seeding 
---      ad infinitum <|> until ratio <|> until time
+--   2. dlTorrent
+--      scan blob for verified pieces
+--      start a listening socket
+--      contact tracker for peers (refresh periodically)
+--      begin obtaining pieces from peers
+--        get piece data
+--        verify
+--        write to blob
 --
 --   DESIGN DECISIONS
---   1. every torrent must have a unique sockaddr
+--   1. every active torrent must have a unique sockaddr
 --      it suffices to use a different port
---   2. every torrent must have a unique peer id
+--   2. every active torrent must have a unique peer id
 --
--- Torrent minfo blob pieces (avail, navail) sockaddr
 data Torrent =
   Torrent MetaInfo
-          Blob
+          Blob -- storage
           ByteString -- info hash
-          [PieceHash]
-          (Set PieceHash, Set PieceHash) -- (avail, not avail)
-     --     SockAddr
-       --   ByteString -- peer id
+          [PieceHash] -- pieces
+          (Set PieceHash) -- (available piees)
   deriving (Show, Eq)
 
 type PieceHash = ByteString
@@ -69,16 +59,12 @@ type PieceHash = ByteString
 type PieceData = ByteString
 
 -- | Load a torrent from metainfo.
--- this should probably be in IO
---  availB
--- listening socket
--- random peer id
 mkTorrent :: MetaInfo -> Torrent
 mkTorrent meta =
-  let blob = mkBlob meta
-      info = infoHash meta
-      pieces = pieceList meta
-      avail = availB blob pieces
+  let blob = mkBlob meta -- done
+      info = infoHash meta -- done
+      pieces = pieceList meta -- done
+      avail = S.empty
   in Torrent meta blob info pieces avail
 
 -- | Generate a SHA1 info_hash from MetaInfo.
@@ -89,9 +75,17 @@ infoHash (MetaInfo (BDict m)) =
       s = bEncode (m ! (key "info"))
   in (BS.pack . show . sha1) s
 
--- | Extract piece list from MetaInfo.
+split20 :: ByteString -> [ByteString]
+split20 xs
+  | xs == BS.empty = []
+  | otherwise = BS.take 20 xs : split20 (BS.drop 20 xs)
+
+-- | Extract pieces list from MetaInfo.
 pieceList :: MetaInfo -> [PieceHash]
-pieceList _ = []
+pieceList (MetaInfo (BDict m)) =
+  let (BDict inf) = m ! (key "info")
+      (BStr pieces) = inf ! (key "pieces")
+  in split20 pieces
 
 -- | Download a torrent.
 --
@@ -115,5 +109,5 @@ verifyP _ _ = True
 --
 -- Note : Data within blob that does not hash correctly will be
 -- treated as empty space in the resulting availability sets.
-availB :: Blob -> [PieceHash] -> (Set PieceHash, Set PieceHash)
-availB blob hashes = (S.empty, S.empty)
+availB :: Blob -> [PieceHash] -> IO (Set PieceHash)
+availB blob hashes = return S.empty
