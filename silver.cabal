@@ -17,10 +17,10 @@ library
   hs-source-dirs:      src
   exposed-modules:     Network.Silver.BEncode
                      , Network.Silver.Meta
-                     , Network.Silver.Tracker
+                     , Network.Silver.Blob
+                     , Network.Silver.Peers
                      , Network.Silver.Proto
                      , Network.Silver.Torrent
-                     , Network.Silver.Blob
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers

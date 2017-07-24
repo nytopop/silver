@@ -18,17 +18,18 @@ import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Set (Set)
 import Network.Socket (SockAddr, Socket)
 
 data PeerCloud =
   PeerCloud ByteString -- peer id
             ByteString -- info hash
-            [Peer] -- known peer list .. (set might be better)
+            (Set Peer) -- known peers
   deriving (Show, Eq)
 
 data Peer =
   Peer ByteString -- peer id
-       SockAddr -- addr
+       SockAddr -- location
   deriving (Show, Eq)
 
 data PeerStatus

@@ -32,14 +32,6 @@ import Network.Silver.Proto (Peer)
 import Network.Socket (SockAddr)
 
 -- | TORRENT PROCESS
---   2. dlTorrent
---      scan blob for verified pieces
---      start a listening socket
---      contact tracker for peers (refresh periodically)
---      begin obtaining pieces from peers
---        get piece data
---        verify
---        write to blob
 --
 --   DESIGN DECISIONS
 --   1. every active torrent must have a unique sockaddr
@@ -88,14 +80,25 @@ pieceList (MetaInfo (BDict m)) =
   in split20 pieces
 
 -- | Download a torrent.
+--    scan blob for verified pieces
+--    start a listening socket
+--    contact tracker for peers (refresh periodically)
+--    begin obtaining pieces from peers
+--      get piece data
+--      verify
+--      write to blob
 --
--- This function will block until all pieces are downloaded.
+-- This function should block until all pieces are downloaded.
 dl :: Torrent -> IO ()
-dl t = print 0
+dl (Torrent meta blob info pieces avail) = do
+  print blob
+  print info
+  print $ (show $ length pieces) ++ " pieces total"
+  print avail
 
 -- | Download and seed a torrent.
 --
--- This function will block forever.
+-- This function should block forever.
 dls :: Torrent -> IO ()
 dls t = print 0
 
