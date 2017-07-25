@@ -19,6 +19,7 @@ import Control.Concurrent.STM.TVar (TVar)
 import Control.Monad.STM ()
 import Crypto.Hash (Digest, hash)
 import Crypto.Hash.Algorithms (SHA1)
+import qualified Data.ByteString.Base16 as Hex
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Data.Map.Strict (Map, (!))
@@ -53,9 +54,9 @@ type PieceData = ByteString
 -- | Load a torrent from metainfo.
 mkTorrent :: MetaInfo -> Torrent
 mkTorrent meta =
-  let blob = mkBlob meta -- done
-      info = infoHash meta -- done
-      pieces = pieceList meta -- done
+  let blob = mkBlob meta
+      info = infoHash meta
+      pieces = pieceList meta
       avail = S.empty
   in Torrent meta blob info pieces avail
 
@@ -70,7 +71,10 @@ infoHash (MetaInfo (BDict m)) =
 split20 :: ByteString -> [ByteString]
 split20 xs
   | xs == BS.empty = []
-  | otherwise = BS.take 20 xs : split20 (BS.drop 20 xs)
+  | otherwise =
+    let cur = Hex.encode $ BS.take 20 xs
+        nxt = BS.drop 20 xs
+    in cur : split20 nxt
 
 -- | Extract pieces list from MetaInfo.
 pieceList :: MetaInfo -> [PieceHash]
