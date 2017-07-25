@@ -28,9 +28,6 @@ import System.IO
         hClose, hSeek, hSetFileSize, openFile)
 
 -- | Abstracts a piece indexed, file delineated binary storage mechanism.
--- TODO : Dynamic space allocation
---        during the file write process
---        mkBlob becomes a pure function
 data Blob =
   Blob Integer -- piece length
        [File]
@@ -47,10 +44,9 @@ mkBlob (MetaInfo (BDict mi)) =
   let (BDict inf) = mi ! (key "info")
       (BStr name) = inf ! (key "name")
       (BInt pLen) = inf ! (key "piece length")
-      len = M.lookup (key "length") inf
-      files = M.lookup (key "files") inf
+      q k = M.lookup (key k) inf
       fxs =
-        case (len, files) of
+        case (q "length", q "files") of
           (Just (BInt x), Nothing) -> File (BS.unpack name) x : []
           (Nothing, Just (BList fs)) -> mkMulti name fs
   in Blob pLen fxs
