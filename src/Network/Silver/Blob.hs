@@ -27,7 +27,8 @@ import System.IO
        (FilePath, IOMode(ReadMode, ReadWriteMode), SeekMode(AbsoluteSeek),
         hClose, hSeek, hSetFileSize, openFile)
 
--- | Abstracts a piece indexed, file delineated binary storage mechanism.
+-- | Abstracts a piece indexed, file delineated binary 
+-- storage mechanism.
 data Blob =
   Blob Integer -- piece length
        [File]
@@ -47,7 +48,8 @@ mkBlob (MetaInfo (BDict mi)) =
       q k = M.lookup (key k) inf
       fxs =
         case (q "length", q "files") of
-          (Just (BInt x), Nothing) -> File (BS.unpack name) x : []
+          (Just (BInt x), Nothing) ->
+            File (BS.unpack name) x : []
           (Nothing, Just (BList fs)) -> mkMulti name fs
   in Blob pLen fxs
 
@@ -65,10 +67,11 @@ mkPaths [] = []
 mkPaths ((BStr f):fs) = BS.unpack f : mkPaths fs
 mkPaths _ = []
 
--- | Given a list of files, a starting byte offset, and number of bytes 
--- to distribute, fSplit returns a list of files that make up the data 
--- distribution. Each returned 3 tuple represents an implicated file, 
--- starting byte offset relative to the file, and length in bytes of data.
+-- | Given a list of files, a starting byte offset, and 
+-- number of bytes to distribute, fSplit returns a list of 
+-- files that make up the data distribution. Each returned 
+-- 3 tuple represents an implicated file, starting byte 
+-- offset relative to the file, and length in bytes of data.
 --
 -- fSplit files byte_offset byte_length
 --  -> [ (file, byte_offset, byte_length) ... ]
@@ -77,7 +80,11 @@ mkPaths _ = []
 --   files does not have at least byte_length byte capacity
 --   byte_offset < 0
 --   byte_length < 0
-fSplit :: [File] -> Integer -> Integer -> [(File, Integer, Integer)]
+fSplit ::
+     [File]
+  -> Integer
+  -> Integer
+  -> [(File, Integer, Integer)]
 fSplit _ _ 0 = []
 fSplit [] _ _ = error "Not enough allocated space!"
 fSplit (f@(File _ len):fs) idx dLen
@@ -88,13 +95,16 @@ fSplit (f@(File _ len):fs) idx dLen
         takeN = len - idx
     in case endIdx <= len of
          True -> (f, idx, dLen) : []
-         False -> (f, idx, takeN) : fSplit fs 0 (dLen - takeN)
+         False ->
+           (f, idx, takeN) : fSplit fs 0 (dLen - takeN)
   | idx >= len = fSplit fs (idx - len) dLen
 
--- | Split a byte string into a list of byte strings of the given sizes.
+-- | Split a byte string into a list of byte strings of the 
+-- given sizes.
 --
--- If the length of the source byte string is not equal to the sum of 
--- lengths provided, a runtime exception will be triggered.
+-- If the length of the source byte string is not equal to 
+-- the sum of lengths provided, a runtime exception will be 
+-- triggered.
 bSplit :: ByteString -> [Integer] -> [ByteString]
 bSplit _ [] = []
 bSplit bd bs@(r:bl)
@@ -109,8 +119,9 @@ bSplit bd bs@(r:bl)
 
 -- | Write a piece to a blob.
 -- 
--- If the length of the piece's data is not equal to the blob's
--- piece length, a runtime exception will be triggered.
+-- If the length of the piece's data is not equal to 
+-- the blob's piece length, a runtime exception will 
+-- be triggered.
 bPutPiece :: Blob -> Integer -> ByteString -> IO ()
 bPutPiece (Blob pLen fs) pIdx pData
   | dLen /= pLen = error "Mismatched piece / data length!"
@@ -124,7 +135,8 @@ bPutPiece (Blob pLen fs) pIdx pData
     dLen :: Integer
     dLen = fromIntegral $ BS.length pData
 
--- | Write data to a file starting at the specified byte offset. 
+-- | Write data to a file starting at the specified byte 
+-- offset. 
 --
 -- If the data is longer than the file can accept, a runtime 
 -- exception will be triggered.
@@ -150,7 +162,8 @@ bGetPiece (Blob pLen fs) pIdx =
       chunk xs = return $ BS.concat xs
   in sequence actions >>= chunk
 
--- | Get data from a file, starting at the specified byte offset.
+-- | Get data from a file, starting at the specified 
+-- byte offset.
 --
 -- If you try reading too much data from the file, a runtime
 -- exception will be triggered.

@@ -8,7 +8,8 @@ Maintainer  :  ericizoita@gmail.com
 Stability   :  experimental
 Portability :  portable
 
-This module handles validation and reading of metainfo files.
+This module handles validation and reading of 
+metainfo files.
 -}
 module Network.Silver.Meta
   ( MetaInfo(..)

@@ -1,6 +1,6 @@
 {- |
 Module      :  Network.Silver.BEncode
-Description :  Bencoded ByteString serialization & deserialization.
+Description :  Bencoding serialization & deserialization.
 Copyright   :  (c) Eric Izoita 2017
 License     :  BSD3
 
@@ -8,8 +8,10 @@ Maintainer  :  ericizoita@gmail.com
 Stability   :  experimental
 Portability :  portable
 
-This module handles the conversion of bencoded ByteStrings to BVals, and 
-conversion of BVals to bencoded ByteStrings. Parsers use Attoparsec.
+This module handles the conversion of bencoded ByteStrings 
+to BVals, and conversion of BVals to bencoded ByteStrings. 
+
+Parsers use Attoparsec.
 -}
 module Network.Silver.BEncode
   ( BVal(..)

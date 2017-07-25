@@ -92,7 +92,8 @@ pieceList (MetaInfo (BDict m)) =
 --      verify
 --      write to blob
 --
--- This function should block until all pieces are downloaded.
+-- This function should block until all pieces are 
+-- downloaded.
 dl :: Torrent -> IO ()
 dl (Torrent meta blob info pieces avail) = do
   print blob
@@ -114,7 +115,8 @@ verifyP _ _ = True
 
 -- | Get availability of verified pieces in blob.
 --
--- Note : Data within blob that does not hash correctly will be
--- treated as empty space in the resulting availability sets.
+-- Note : Data within blob that does not hash correctly 
+-- will be treated as empty space in the resulting 
+-- availability set.
 availB :: Blob -> [PieceHash] -> IO (Set PieceHash)
 availB blob hashes = return S.empty
