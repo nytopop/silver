@@ -19,6 +19,12 @@ import Data.ByteString.Char8 (ByteString)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Set (Set)
+import Network.Silver.BEncode (BVal(..), key)
 import Network.Silver.Meta (MetaInfo(..))
-import Network.Socket (SockAddr)
 import Network.Silver.Proto (Peer)
+import Network.Socket (SockAddr)
+
+-- | get peers from trackers in metainfo
+--
+getTPeers :: MetaInfo -> IO [Peer]
+getTPeers _ = return []
