@@ -100,6 +100,8 @@ dl (Torrent meta blob info pieces avail) = do
   print info
   print $ (show $ length pieces) ++ " pieces total"
   print avail
+  availB blob pieces
+  return ()
 
 -- | Download and seed a torrent.
 --
@@ -109,14 +111,24 @@ dls t = print 0
 
 -- | Verify a piece.
 --
--- hash piecedata, equality test
-verifyP :: PieceHash -> PieceData -> Bool
-verifyP _ _ = True
+verifyP :: PieceData -> PieceHash -> (PieceHash, Bool)
+verifyP piece checksum =
+  let sha1 :: ByteString -> Digest SHA1
+      sha1 = hash
+      newsum = (BS.pack . show . sha1) piece
+  in (checksum, checksum == newsum)
 
 -- | Get availability of verified pieces in blob.
 --
 -- Note : Data within blob that does not hash correctly 
--- will be treated as empty space in the resulting 
--- availability set.
+-- will be treated as non-available, and thus will be
+-- overwritten throughout a download.
 availB :: Blob -> [PieceHash] -> IO (Set PieceHash)
-availB blob hashes = return S.empty
+availB blob checksums =
+  let len = (fromIntegral $ length checksums) :: Integer
+      indices = [0 .. len - 1]
+      getPieces = sequence $ map (bGetPiece blob) indices
+      verified xs = zipWith verifyP xs checksums
+      availOf xs = map fst $ filter (\(_, has) -> has) xs
+  in do pieces <- getPieces
+        return $ S.fromList $ (availOf . verified) pieces
