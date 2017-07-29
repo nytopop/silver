@@ -22,10 +22,12 @@ import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map, (!))
 import Network.Silver.BEncode (BVal(..), key)
 import Network.Silver.Meta (MetaInfo(..))
+import System.Directory (createDirectoryIfMissing)
 import qualified System.FilePath.Posix as SF
 import System.IO
-       (FilePath, IOMode(ReadMode, ReadWriteMode), SeekMode(AbsoluteSeek),
-        hClose, hSeek, hSetFileSize, openFile)
+       (FilePath, IOMode(ReadMode, ReadWriteMode, WriteMode),
+        SeekMode(AbsoluteSeek), hClose, hFileSize, hSeek, hSetFileSize,
+        openFile)
 
 -- | Abstracts a piece indexed, file delineated binary 
 -- storage mechanism.
@@ -40,7 +42,9 @@ data File =
   deriving (Show, Eq)
 
 -- | Make a blob.
-mkBlob :: MetaInfo -> Blob
+--
+-- This will allocate disk space for all component files.
+mkBlob :: MetaInfo -> IO Blob
 mkBlob (MetaInfo (BDict mi)) =
   let (BDict inf) = mi ! (key "info")
       (BStr name) = inf ! (key "name")
@@ -51,7 +55,19 @@ mkBlob (MetaInfo (BDict mi)) =
           (Just (BInt x), Nothing) ->
             File (BS.unpack name) x : []
           (Nothing, Just (BList fs)) -> mkMulti name fs
-  in Blob pLen fxs
+  in do sequence_ $ map allocFile fxs
+        return $ Blob pLen fxs
+
+-- | Allocate disk space for a File.
+allocFile :: File -> IO ()
+allocFile (File fp fl) =
+  let subdir = SF.takeDirectory fp
+      mkDir = createDirectoryIfMissing True subdir
+      allocF = do
+        hdl <- openFile fp WriteMode
+        hSetFileSize hdl fl
+        hClose hdl
+  in mkDir >> allocF
 
 -- | Make a file list.
 mkMulti :: ByteString -> [BVal] -> [File]
@@ -62,6 +78,7 @@ mkMulti name ((BDict x):xs) =
       path = SF.joinPath $ mkPaths paths
   in File path len : mkMulti name xs
 
+-- | Convert delineated bstrings to file paths.
 mkPaths :: [BVal] -> [FilePath]
 mkPaths [] = []
 mkPaths ((BStr f):fs) = BS.unpack f : mkPaths fs
@@ -138,17 +155,16 @@ bPutPiece (Blob pLen fs) pIdx pData
 -- | Write data to a file starting at the specified byte 
 -- offset. 
 --
--- If the data is longer than the file can accept, a runtime 
+-- If the data is longer than the file can accept, a runtime
 -- exception will be triggered.
 fPutData :: File -> Integer -> ByteString -> IO ()
 fPutData (File path len) fPos fData
   | fPos + dLen > len = error "Too much data for file!"
   | otherwise =
     let mkHdl = openFile path ReadWriteMode
-        fsize h = hSetFileSize h len >> return h
         seek h = hSeek h AbsoluteSeek fPos >> return h
         write h = BS.hPut h fData >> return h
-    in mkHdl >>= fsize >>= seek >>= write >>= \h -> hClose h
+    in mkHdl >>= seek >>= write >>= \h -> hClose h
   where
     dLen :: Integer
     dLen = fromIntegral $ BS.length fData

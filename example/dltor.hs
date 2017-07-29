@@ -20,6 +20,14 @@ module Main where
 -- call dlTorrent <|>
 --      dlsTorrent
 --
-main :: IO
+import qualified Data.ByteString.Char8 as BS
+import Network.Silver.Meta (decodeMeta)
+import Network.Silver.Torrent (dlTorrent)
+import System.Environment
+
+main :: IO ()
 main = do
-  print 0
+  bs <- BS.readFile "ref/deb.torrent"
+  let f (Right x) = x
+      minf = f $ decodeMeta bs
+  dlTorrent minf
