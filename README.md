@@ -6,4 +6,4 @@ A bittorrent implementation in Haskell. This project aims to be a robust impleme
 ## Support for BEPs
 | BEP # | Title | Status |
 | ----- | ----- | ------ |
-|   3   | The BitTorrent Protocol Specification | underway |
+| 0003 | The BitTorrent Protocol Specification | underway |
