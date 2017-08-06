@@ -38,6 +38,14 @@ type PieceHash = ByteString
 
 type PieceData = ByteString
 
+newtype InfoHash =
+  InfoHash ByteString
+  deriving (Show, Eq)
+
+newtype PeerID =
+  PeerID ByteString
+  deriving (Show, Eq)
+
 -- | Generate a SHA1 info_hash from MetaInfo.
 infoHash :: MetaInfo -> ByteString
 infoHash (MetaInfo (BDict m)) =
@@ -51,7 +59,7 @@ split20 :: ByteString -> [ByteString]
 split20 xs
   | xs == BS.empty = []
   | otherwise =
-    let cur = Hex.encode $ BS.take 20 xs
+    let cur = BS.take 20 xs
         nxt = BS.drop 20 xs
     in cur : split20 nxt
 
@@ -60,7 +68,8 @@ pieceList :: MetaInfo -> [PieceHash]
 pieceList (MetaInfo (BDict m)) =
   let (BDict inf) = m ! (key "info")
       (BStr pieces) = inf ! (key "pieces")
-  in split20 pieces
+      raw = split20 pieces
+  in map Hex.encode raw
 
 -- | Download a torrent.
 --

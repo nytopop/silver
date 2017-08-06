@@ -10,6 +10,8 @@ Portability :  portable
 
 This module handles validation and reading of 
 metainfo files.
+
+TODO : Either -> Maybe
 -}
 module Network.Silver.Meta
   ( MetaInfo(..)
