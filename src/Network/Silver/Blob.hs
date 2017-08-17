@@ -10,6 +10,7 @@ Portability :  portable
 -}
 module Network.Silver.Blob
   ( Blob
+  , PieceData(..)
   , mkBlob
   , bGetPiece
   , bPutPiece
@@ -39,6 +40,10 @@ data Blob =
 data File =
   File FilePath
        Integer -- file length
+  deriving (Show, Eq)
+
+newtype PieceData =
+  PieceData ByteString
   deriving (Show, Eq)
 
 -- | Make a blob.
@@ -139,8 +144,8 @@ bSplit bd bs@(r:bl)
 -- If the length of the piece's data is not equal to 
 -- the blob's piece length, a runtime exception will 
 -- be triggered.
-bPutPiece :: Blob -> Integer -> ByteString -> IO ()
-bPutPiece (Blob pLen fs) pIdx pData
+bPutPiece :: Blob -> Integer -> PieceData -> IO ()
+bPutPiece (Blob pLen fs) pIdx (PieceData pData)
   | dLen /= pLen = error "Mismatched piece / data length!"
   | otherwise =
     let startIdx = pIdx * dLen
@@ -170,12 +175,12 @@ fPutData (File path len) fPos fData
     dLen = fromIntegral $ BS.length fData
 
 -- | Get the piece at the given piece index.
-bGetPiece :: Blob -> Integer -> IO ByteString
+bGetPiece :: Blob -> Integer -> IO PieceData
 bGetPiece (Blob pLen fs) pIdx =
   let startIdx = pIdx * pLen
       (fss, bo, bl) = unzip3 $ fSplit fs startIdx pLen
       actions = zipWith3 fGetData fss bo bl
-      chunk xs = return $ BS.concat xs
+      chunk xs = return $ PieceData $ BS.concat xs
   in sequence actions >>= chunk
 
 -- | Get data from a file, starting at the specified 

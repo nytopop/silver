@@ -15,6 +15,12 @@ TODO : Either -> Maybe
 -}
 module Network.Silver.Meta
   ( MetaInfo(..)
+  -- Content Functions
+  , PieceList(..)
+  , pieceList
+  , InfoHash(..)
+  , infoHash
+  -- Decoding
   , decodeMetaFile
   , decodeMeta
   , isFileDict
@@ -22,6 +28,8 @@ module Network.Silver.Meta
   , isMetaInfo
   ) where
 
+import Crypto.Hash (Digest, hash)
+import Crypto.Hash.Algorithms (SHA1)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map.Strict as M
@@ -29,10 +37,44 @@ import Data.Map.Strict (Map, (!))
 import Network.Silver.BEncode (BVal(..), bDecode, bEncode, key)
 import System.IO (FilePath)
 
--- | A verified meta info.
+-- | A meta info.
 newtype MetaInfo =
   MetaInfo BVal
   deriving (Show, Eq)
+
+-- | A hash of the infodict within a meta info.
+newtype InfoHash =
+  InfoHash ByteString
+  deriving (Show, Eq)
+
+-- | A list of pieces within a meta info.
+newtype PieceList =
+  PieceList [ByteString]
+  deriving (Show, Eq)
+
+-- | Generate a SHA1 info_hash from MetaInfo.
+infoHash :: MetaInfo -> InfoHash
+infoHash (MetaInfo (BDict m)) =
+  let sha1 :: ByteString -> Digest SHA1
+      sha1 = hash
+      s = bEncode (m ! (key "info"))
+  in InfoHash $ (BS.pack . show . sha1) s
+
+-- | Split a byte string into pieces of length 20.
+split20 :: ByteString -> [ByteString]
+split20 xs
+  | xs == BS.empty = []
+  | otherwise =
+    let cur = BS.take 20 xs
+        nxt = BS.drop 20 xs
+    in cur : split20 nxt
+
+-- | Extract pieces list from MetaInfo.
+pieceList :: MetaInfo -> PieceList
+pieceList (MetaInfo (BDict m)) =
+  let (BDict inf) = m ! (key "info")
+      (BStr pieces) = inf ! (key "pieces")
+  in PieceList $ split20 pieces
 
 -- | Decode and validate MetaInfo from a file.
 decodeMetaFile :: FilePath -> IO (Either String MetaInfo)

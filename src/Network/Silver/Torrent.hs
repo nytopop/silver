@@ -10,66 +10,31 @@ Portability :  portable
 
 -}
 module Network.Silver.Torrent
-  ( PieceHash
-  , PieceData
-  , dlTorrent
+  ( dlTorrent
   ) where
 
+-- Concurrency
 import Control.Concurrent.STM.TVar
        (TVar(..), newTVar, readTVar, writeTVar)
 import Control.Monad.STM (atomically)
+
+-- Data
 import Crypto.Hash (Digest, hash)
 import Crypto.Hash.Algorithms (SHA1)
-import qualified Data.ByteString.Base16 as Hex
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import Data.Map.Strict (Map, (!))
 import qualified Data.Map.Strict as M
-import Data.Set (Set)
-import qualified Data.Set as S
+
+-- Internal
 import Network.Silver.BEncode (BVal(..), bEncode, key)
-import Network.Silver.Blob (Blob, bGetPiece, bPutPiece, mkBlob)
-import Network.Silver.Meta (MetaInfo(..), decodeMeta)
+import Network.Silver.Blob
+       (Blob, PieceData(..), bGetPiece, bPutPiece, mkBlob)
+import Network.Silver.Meta
+       (InfoHash, MetaInfo(..), PieceList(..), decodeMeta, infoHash,
+        pieceList)
 import Network.Silver.Proto (Peer)
 import Network.Socket (SockAddr)
-
--- TODO make these in newtype
-type PieceHash = ByteString
-
-type PieceData = ByteString
-
-newtype InfoHash =
-  InfoHash ByteString
-  deriving (Show, Eq)
-
-newtype PeerID =
-  PeerID ByteString
-  deriving (Show, Eq)
-
--- | Generate a SHA1 info_hash from MetaInfo.
-infoHash :: MetaInfo -> ByteString
-infoHash (MetaInfo (BDict m)) =
-  let sha1 :: ByteString -> Digest SHA1
-      sha1 = hash
-      s = bEncode (m ! (key "info"))
-  in (BS.pack . show . sha1) s
-
--- | Split a byte string into pieces of length 20.
-split20 :: ByteString -> [ByteString]
-split20 xs
-  | xs == BS.empty = []
-  | otherwise =
-    let cur = BS.take 20 xs
-        nxt = BS.drop 20 xs
-    in cur : split20 nxt
-
--- | Extract pieces list from MetaInfo.
-pieceList :: MetaInfo -> [PieceHash]
-pieceList (MetaInfo (BDict m)) =
-  let (BDict inf) = m ! (key "info")
-      (BStr pieces) = inf ! (key "pieces")
-      raw = split20 pieces
-  in map Hex.encode raw
 
 -- | Download a torrent.
 --
@@ -86,8 +51,8 @@ dlTorrent meta =
 
 -- | Verify a piece.
 --
-verifyP :: PieceData -> PieceHash -> Bool
-verifyP piece checksum =
+verifyP :: PieceData -> ByteString -> Bool
+verifyP (PieceData piece) checksum =
   let sha1 :: ByteString -> Digest SHA1
       sha1 = hash
       newsum = (BS.pack . show . sha1) piece
@@ -98,8 +63,8 @@ verifyP piece checksum =
 -- Note : Data within blob that does not hash correctly 
 -- will be treated as non-available, and thus will be
 -- overwritten throughout a download.
-scanBlob :: Blob -> [PieceHash] -> IO (Map Integer Bool)
-scanBlob blob checksums =
+scanBlob :: Blob -> PieceList -> IO (Map Integer Bool)
+scanBlob blob (PieceList checksums) =
   let len = (fromIntegral $ length checksums) :: Integer
       indices = [0 .. len - 1]
       getPieces = sequence $ map (bGetPiece blob) indices
