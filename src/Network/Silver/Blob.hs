@@ -103,10 +103,7 @@ mkPaths _ = []
 --   byte_offset < 0
 --   byte_length < 0
 fSplit ::
-     [File]
-  -> Integer
-  -> Integer
-  -> [(File, Integer, Integer)]
+     [File] -> Integer -> Integer -> [(File, Integer, Integer)]
 fSplit _ _ 0 = []
 fSplit [] _ _ = error "Not enough allocated space!"
 fSplit (f@(File _ len):fs) idx dLen
@@ -117,8 +114,7 @@ fSplit (f@(File _ len):fs) idx dLen
         takeN = len - idx
     in case endIdx <= len of
          True -> (f, idx, dLen) : []
-         False ->
-           (f, idx, takeN) : fSplit fs 0 (dLen - takeN)
+         False -> (f, idx, takeN) : fSplit fs 0 (dLen - takeN)
   | idx >= len = fSplit fs (idx - len) dLen
 
 -- | Split a byte string into a list of byte strings of the 
