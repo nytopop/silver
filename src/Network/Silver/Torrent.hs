@@ -12,12 +12,11 @@ Portability :  portable
 module Network.Silver.Torrent
   ( newClient
   , runClient
-  , dlTorrent
   ) where
 
 import Control.Concurrent
 import Control.Concurrent.STM.TVar
-       (TVar(..), newTVar, readTVar, writeTVar)
+       (TVar, newTVar, readTVar, writeTVar)
 import Control.Monad.Fix (fix)
 import Control.Monad.STM (atomically)
 import Crypto.Hash (Digest, hash)
@@ -38,11 +37,11 @@ import Network.Silver.Blob
 import Network.Silver.Meta
        (InfoHash, MetaInfo(..), PieceList(..), announce, decodeMeta,
         infoHash, pieceList)
-import Network.Silver.Peers (getTPeers)
 import Network.Silver.Proto (Peer)
 import Network.Socket (SockAddr)
 import System.Random
 
+-- A torrent client.
 data Client = Client
   { clientMeta :: MetaInfo
   , clientID :: ByteString
@@ -55,21 +54,33 @@ data Client = Client
   , clientPeers :: TVar (Set Peer)
   }
 
+-- Which peer source to use.
+data PeerSource
+  = Tracker
+  | DHT
+
+-- Execution target.
 data Target
   = Download
   | Seed
-  deriving (Show)
+  | Parse
+  | Verify
+  deriving (Show, Eq)
 
-myport :: Int
-myport = 9140
+-- Downloading strategy.
+data Strategy
+  = Stream -- goes sequentially
+  | Optimal -- max speed
+  | Greedy -- max speed, greedy
 
 -- Make a new client for a particular meta info dictionary.
--- This function will allocate storage on disk.
+-- This function will allocate storage on disk for all component
+-- files.
 newClient :: MetaInfo -> Int -> IO Client
 newClient meta port = do
   rng <- getStdGen
   let vals = randoms rng :: [Char]
-      id = BS.pack $ take 20 vals
+      myid = BS.concat [BS.pack "qB", BS.pack $ take 18 vals]
   up <- atomically $ newTVar 0
   down <- atomically $ newTVar 0
   left <- atomically $ newTVar 0
@@ -79,7 +90,7 @@ newClient meta port = do
   return $
     Client
     { clientMeta = meta
-    , clientID = id
+    , clientID = myid
     , clientPort = port
     , clientUploaded = up
     , clientDownloaded = down
@@ -93,6 +104,7 @@ newClient meta port = do
 runClient :: Client -> IO ()
 runClient c = do
   tracker <- forkIO $ trackPeers c
+  -- scanBlob blob pieces
   threadDelay (1000 * 1000 * 10)
   return ()
 
@@ -113,77 +125,26 @@ trackPeers c =
           , (BS.pack "uploaded", Just $ str up)
           , (BS.pack "downloaded", Just $ str down)
           , (BS.pack "left", Just $ str left)
-          , (BS.pack "compact", Just $ str 0) -- MUST SUPPORT COMPACT
+          --, (BS.pack "compact", Just $ str 0) -- ARGGGH
           ]
         uri = BS.concat [tracker, renderQuery True params]
-    -- resp should be (Maybe BVal)
-    bd <- get uri >>= \resp -> return $ bDecode resp
-    print bd
+    resp <- get uri
+    print uri
+    print resp
+    -- attempt to parse resp, (will need a new parser)
+    -- needs: Parser (Either Compact BVal)
     threadDelay (1000 * 1000 * 900)
     loop
   where
     meta = clientMeta c
 
--- | Download a torrent.
---
--- This function should block until all pieces are 
--- downloaded.
-dlTorrent :: MetaInfo -> IO ()
-dlTorrent meta =
-  let info = infoHash meta
-      myid = BS.pack "abcdfdsasdfdkjhgfhjk"
-      pieces = pieceList meta
-  in do up <- atomically $ newTVar (0 :: Int)
-        down <- atomically $ newTVar (0 :: Int)
-        left <- atomically $ newTVar (0 :: Int)
-        let peers :: Set Peer
-            peers = S.fromList []
-        availPeers <- atomically $ newTVar peers
-        forkIO $
-          fix $ \loop -> do
-            up' <- atomically $ readTVar up
-            down' <- atomically $ readTVar down
-            left' <- atomically $ readTVar left
-            -- now we construct a uri with these query params
-            let tracker = announce meta
-                str x = BS.pack $ show x
-                params =
-                  [ (BS.pack "info_hash", Just info)
-                  , (BS.pack "peer_id", Just myid)
-                  , (BS.pack "port", Just $ str myport)
-                  , (BS.pack "uploaded", Just $ str up')
-                  , (BS.pack "downloaded", Just $ str down')
-                  , (BS.pack "left", Just $ str left')
-                  ]
-                uri =
-                  BS.concat [tracker, renderQuery True params]
-            print uri
-            print "trying to get it..."
-            resp <- get uri
-            curPeers <- atomically $ readTVar availPeers
-            print curPeers
-            -- oh, we have to construct the request right
-            --resp <- get $ announce meta
-            --print resp
-            -- request a peerlist
-            -- parse it
-            -- update availPeers
-            -- wait for the timeout
-            loop
-        -- next we setup our blob
-        blob <- mkBlob meta
-        pieceMap <- scanBlob blob pieces
-        availPieces <- atomically $ newTVar pieceMap
-        -- spawn a thread to listen for upload reqs
-        -- spawn a thread 
-        return ()
-
 -- | Get some url
 get :: ByteString -> IO ByteString
 get uri = do
-  req <- simpleHTTP (getRequest (BS.unpack uri))
-  resp <- getResponseBody req
-  return $ BS.pack resp
+  req <- simpleHTTP $ getRequest $ BS.unpack uri
+  (fmap BS.pack . getResponseBody) req
+  --resp <- getResponseBody req
+  --return $ BS.pack resp
 
 -- | Verify a piece.
 --

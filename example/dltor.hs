@@ -17,12 +17,12 @@ module Main where
 --
 import qualified Data.ByteString.Char8 as BS
 import Network.Silver.Meta (decodeMeta)
-import Network.Silver.Torrent (dlTorrent, newClient, runClient)
+import Network.Silver.Torrent (newClient, runClient)
 import System.Environment
 
 main :: IO ()
 main = do
-  bs <- BS.readFile "../ref/deb.torrent"
+  args <- getArgs
+  bs <- BS.readFile $ head args
   let (Just meta) = decodeMeta bs
   newClient meta 8199 >>= runClient
-  return ()
