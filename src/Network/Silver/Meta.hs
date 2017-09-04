@@ -10,12 +10,11 @@ Portability :  portable
 
 This module handles validation and reading of 
 metainfo files.
-
-TODO : Either -> Maybe
 -}
 module Network.Silver.Meta
   ( MetaInfo(..)
   -- Content Functions
+  , announce
   , PieceList(..)
   , pieceList
   , InfoHash(..)
@@ -30,6 +29,7 @@ module Network.Silver.Meta
 
 import Crypto.Hash (Digest, hash)
 import Crypto.Hash.Algorithms (SHA1)
+import Data.ByteString.Base16 (decode)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map.Strict as M
@@ -52,13 +52,20 @@ newtype PieceList =
   PieceList [ByteString]
   deriving (Show, Eq)
 
+-- | Extract announce url from MetaInfo.
+announce :: MetaInfo -> ByteString
+announce (MetaInfo (BDict m)) =
+  let (BStr uri) = m ! (key "announce")
+  in uri
+
 -- | Generate a SHA1 info_hash from MetaInfo.
-infoHash :: MetaInfo -> InfoHash
+infoHash :: MetaInfo -> ByteString
 infoHash (MetaInfo (BDict m)) =
   let sha1 :: ByteString -> Digest SHA1
       sha1 = hash
       s = bEncode (m ! (key "info"))
-  in InfoHash $ (BS.pack . show . sha1) s
+      (raw, _) = (decode . BS.pack . show . sha1) s
+  in raw
 
 -- | Split a byte string into pieces of length 20.
 split20 :: ByteString -> [ByteString]
@@ -77,20 +84,13 @@ pieceList (MetaInfo (BDict m)) =
   in PieceList $ split20 pieces
 
 -- | Decode and validate MetaInfo from a file.
-decodeMetaFile :: FilePath -> IO (Either String MetaInfo)
-decodeMetaFile f = do
-  xs <- BS.readFile f
-  return (decodeMeta xs)
+decodeMetaFile :: FilePath -> IO (Maybe MetaInfo)
+decodeMetaFile f =
+  BS.readFile f >>= \bs -> return $ decodeMeta bs
 
 -- | Decode and validate MetaInfo from a ByteString.
-decodeMeta :: ByteString -> Either String MetaInfo
-decodeMeta xs =
-  case bDecode xs of
-    Left msg -> Left msg
-    Right val ->
-      case isMetaInfo val of
-        False -> Left "Invalid MetaInfo!"
-        True -> Right $ MetaInfo val
+decodeMeta :: ByteString -> Maybe MetaInfo
+decodeMeta xs = bDecode xs >>= \meta -> Just $ MetaInfo meta
 
 -- | Check whether a BVal is a non-empty BStr.
 isBStr :: BVal -> Bool

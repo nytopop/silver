@@ -30,7 +30,7 @@ data PeerCloud =
 data Peer =
   Peer ByteString -- peer id
        SockAddr -- location
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data PeerStatus
   = Dead

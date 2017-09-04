@@ -12,16 +12,15 @@ This module handles peer discovery. This includes tracker
 requests as well as other methods (local, PeX, DHT).
 -}
 module Network.Silver.Peers
-  (
+    ( getTPeers
   ) where
 
 import Data.ByteString.Char8 (ByteString)
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
 import Data.Set (Set)
+import qualified Data.Set as S
 import Network.Silver.BEncode (BVal(..), key)
 import Network.Silver.Meta (MetaInfo(..))
-import Network.Silver.Proto (Peer)
+import Network.Silver.Proto (Peer(..))
 import Network.Socket (SockAddr)
 
 -- | A verified tracker response.
@@ -36,7 +35,7 @@ newtype TrackerResponse =
 --    take as parameters
 -- 3. decode the bval
 -- 4. return ? something
-getTPeers :: MetaInfo -> IO [Peer]
+getTPeers :: MetaInfo -> IO (Set Peer)
 getTPeers (MetaInfo (BDict mi)) =
   let a = 1
-  in return []
+  in return $ S.fromList []

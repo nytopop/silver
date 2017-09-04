@@ -66,11 +66,11 @@ bEncode (BDict ds) =
   in BS.concat [prefix, midfix, suffix]
 
 -- | Decode a BVal from a ByteString.
-bDecode :: ByteString -> Either String BVal
+bDecode :: ByteString -> Maybe BVal
 bDecode xs =
   case A.parseOnly bVal xs of
-    Left msg -> Left "Failed to decode!"
-    Right val -> Right val
+    Left msg -> Just $ BStr $ BS.pack msg
+    Right val -> Just val
 
 -- | Parse a BVal.
 bVal :: Parser BVal

@@ -14,20 +14,15 @@ module Main where
 --    -h, --help
 --     ; show this message
 --
--- read torrent file
--- decode metainfo
--- call mkTorrent
--- call dlTorrent <|>
---      dlsTorrent
 --
 import qualified Data.ByteString.Char8 as BS
 import Network.Silver.Meta (decodeMeta)
-import Network.Silver.Torrent (dlTorrent)
+import Network.Silver.Torrent (dlTorrent, newClient, runClient)
 import System.Environment
 
 main :: IO ()
 main = do
-  bs <- BS.readFile "ref/deb.torrent"
-  let f (Right x) = x
-      minf = f $ decodeMeta bs
-  dlTorrent minf
+  bs <- BS.readFile "../ref/deb.torrent"
+  let (Just meta) = decodeMeta bs
+  newClient meta 8199 >>= runClient
+  return ()
