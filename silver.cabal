@@ -36,6 +36,7 @@ library
                      , http-types
                      , binary
                      , random
+                     , iproute
   default-language:    Haskell2010
 
 executable dltor
