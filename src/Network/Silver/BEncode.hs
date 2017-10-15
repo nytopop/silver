@@ -13,6 +13,8 @@ to BVals, and conversion of BVals to bencoded ByteStrings.
 
 Parsers use Attoparsec.
 -}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Network.Silver.BEncode
   ( BVal(..)
   , bEncode
@@ -49,27 +51,14 @@ key = BStr . BS.pack
 
 -- | Encode a BVal into a ByteString.
 bEncode :: BVal -> ByteString
-bEncode (BInt i) =
-  let prefix = BS.singleton 'i'
-      midfix = BS.pack (show i)
-      suffix = BS.singleton 'e'
-  in BS.concat [prefix, midfix, suffix]
-bEncode (BStr x) =
-  let midfix = BS.singleton ':'
-      prefix = BS.pack (show $ BS.length x)
-  in BS.concat [prefix, midfix, x]
-bEncode (BList xs) =
-  let prefix = BS.singleton 'l'
-      midfix = BS.concat $ map bEncode xs
-      suffix = BS.singleton 'e'
-  in BS.concat [prefix, midfix, suffix]
+bEncode (BInt i) = BS.concat ["i", BS.pack (show i), "e"]
+bEncode (BStr x) = BS.concat [BS.pack (show $ BS.length x), ":", x]
+bEncode (BList xs) = BS.concat ["l", BS.concat $ map bEncode xs, "e"]
 bEncode (BDict ds) =
   let xs = M.toAscList ds
       fun (k, v) = BS.concat [bEncode k, bEncode v]
       midfix = BS.concat $ map fun xs
-      prefix = BS.singleton 'd'
-      suffix = BS.singleton 'e'
-  in BS.concat [prefix, midfix, suffix]
+  in BS.concat ["d", midfix, "e"]
 
 -- | Decode a BVal from a ByteString.
 bDecode :: ByteString -> Maybe BVal
