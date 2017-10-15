@@ -14,4 +14,4 @@ With that said, some example clients will be included in this distribution that 
 | 0012 | Multitracker Metadata Extension | waiting |
 | 0015 | UDP Tracker Protocol for BitTorrent | waiting |
 | 0020 | Peer ID Conventions | gotta go fast |
-| 0023 | Tracker Returns Compact Peer Lists | underway |
+| 0023 | Tracker Returns Compact Peer Lists | supported |
