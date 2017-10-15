@@ -34,6 +34,7 @@ import Data.Set (Set)
 import qualified Data.Set as S
 
 -- Networking
+import Data.IP (toHostAddress, toIPv4)
 import Network.HTTP (getRequest, getResponseBody, simpleHTTP)
 import Network.HTTP.Types.URI (renderQuery)
 import Network.Socket (SockAddr(..))
@@ -66,17 +67,13 @@ getTrackerPeers c = do
       resp <- (fmap BS.pack . getResponseBody) req
       case (bDecode resp >>= decodeTracker) of
         Just (Fat peerList interval) -> do
-          print "fat"
           let peers = peers0003 peerList
-          print peers
-          return (S.empty, 10)
+          return ((S.fromList peers), interval)
         Just (Compact peerStr interval) -> do
-          print "compact"
           let peers = peers0023 (BL.fromStrict peerStr)
           return (S.fromList peers, interval)
         Just (Failure reason) -> do
-          print reason
-          return (S.empty, 10)
+          return (S.empty, 30)
         Nothing -> do
           return (S.empty, 30)
       where str = BS.pack . show
@@ -87,7 +84,7 @@ getTrackerPeers c = do
               , ("uploaded", Just $ str up)
               , ("downloaded", Just $ str down)
               , ("left", Just $ str left)
-              --, ("compact", Nothing)
+              , ("compact", Nothing)
               ]
             uri = BS.concat [tracker, renderQuery True params]
     TrackerUDP -> return (S.empty, 10)
@@ -123,7 +120,7 @@ decodeTracker (BDict t) =
 decodeTracker _ = Nothing
 
 -- | Parse a BEP 0003 encoded peer list.
-peers0003 :: [BVal] -> [(ByteString, Word16)]
+peers0003 :: [BVal] -> [SockAddr]
 peers0003 [] = []
 peers0003 (BDict p:xs) =
   case M.lookup (key "ip") p of
@@ -133,7 +130,9 @@ peers0003 (BDict p:xs) =
           case port <= 65535 of
             True ->
               let port' = fromInteger port :: Word16
-              in (addr, port') : peers0003 xs
+                  ints = fmap (read . BS.unpack) $ BS.split '.' addr
+                  addr' = (toHostAddress . toIPv4) ints
+              in SockAddrInet (fromIntegral port') addr' : peers0003 xs
             _ -> peers0003 xs
         _ -> peers0003 xs
     _ -> peers0003 xs
