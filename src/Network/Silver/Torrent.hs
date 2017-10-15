@@ -78,14 +78,13 @@ trackPeers c =
   fix $ \loop -> do
     (peers, interval) <- getTrackerPeers c
     atomically $ do
-      cur <- readTVar $ clientPeers c
-      let new = S.union cur peers
-      writeTVar (clientPeers c) new
+      current <- readTVar (clientPeers c)
+      let updated = S.union current peers
+      writeTVar (clientPeers c) updated
     print peers
     print interval
     threadDelay (1000 * 1000 * (fromInteger interval))
     loop -- can be conditional for exit
-  where
 
 
 -- | Verify a piece.
