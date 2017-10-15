@@ -27,15 +27,21 @@ module Network.Silver.Meta
   , isMetaInfo
   ) where
 
+-- Crypto
 import Crypto.Hash (Digest, hash)
 import Crypto.Hash.Algorithms (SHA1)
+
+-- Binary Data
 import Data.ByteString.Base16 (decode)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
+
+-- Containers
 import qualified Data.Map.Strict as M
-import Data.Map.Strict (Map, (!))
+import Data.Map.Strict ((!))
+
+-- Internal
 import Network.Silver.BEncode (BVal(..), bDecode, bEncode, key)
-import System.IO (FilePath)
 
 -- | A meta info.
 newtype MetaInfo =
@@ -84,13 +90,17 @@ pieceList (MetaInfo (BDict m)) =
   in PieceList $ split20 pieces
 
 -- | Decode and validate MetaInfo from a file.
-decodeMetaFile :: FilePath -> IO (Maybe MetaInfo)
-decodeMetaFile f =
-  BS.readFile f >>= \bs -> return $ decodeMeta bs
+decodeMetaFile :: String -> IO (Maybe MetaInfo)
+decodeMetaFile f = BS.readFile f >>= \bs -> return $ decodeMeta bs
 
 -- | Decode and validate MetaInfo from a ByteString.
 decodeMeta :: ByteString -> Maybe MetaInfo
-decodeMeta xs = bDecode xs >>= \meta -> Just $ MetaInfo meta
+decodeMeta xs =
+  let check v =
+        if isMetaInfo v
+          then Just $ MetaInfo v
+          else Nothing
+  in bDecode xs >>= check
 
 -- | Check whether a BVal is a non-empty BStr.
 isBStr :: BVal -> Bool
@@ -146,7 +156,7 @@ isInfoDict _ = False
 -- | Check whether a BVal is a valid MetaInfo.
 isMetaInfo :: BVal -> Bool
 isMetaInfo (BDict m) =
-  let announce =
+  let announce' =
         case M.lookup (key "announce") m of
           Nothing -> False
           Just (BStr _) -> True
@@ -154,5 +164,5 @@ isMetaInfo (BDict m) =
         case M.lookup (key "info") m of
           Nothing -> False
           Just i -> isInfoDict i
-  in announce && info
+  in announce' && info
 isMetaInfo _ = False

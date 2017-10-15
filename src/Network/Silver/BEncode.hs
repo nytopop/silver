@@ -20,12 +20,18 @@ module Network.Silver.BEncode
   , key
   ) where
 
+-- Control
 import Control.Applicative ((*>), (<$>), (<*), (<*>), (<|>))
-import Control.Monad
+
+-- Parsing
 import qualified Data.Attoparsec.ByteString.Char8 as A
 import Data.Attoparsec.ByteString.Char8 (Parser)
+
+-- Binary Data
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
+
+-- Containers
 import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
 

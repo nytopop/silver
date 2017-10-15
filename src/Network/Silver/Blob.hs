@@ -16,19 +16,27 @@ module Network.Silver.Blob
   , bPutPiece
   ) where
 
+-- Control
 import Control.Monad (sequence, sequence_)
+
+-- Binary Data
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
+
+-- Containers
 import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map, (!))
-import Network.Silver.BEncode (BVal(..), key)
-import Network.Silver.Meta (MetaInfo(..))
+
+-- Filesystem
 import System.Directory (createDirectoryIfMissing)
 import qualified System.FilePath.Posix as SF
 import System.IO
        (FilePath, IOMode(ReadMode, ReadWriteMode, WriteMode),
         SeekMode(AbsoluteSeek), hClose, hFileSize, hSeek, hSetFileSize,
         openFile)
+-- Internal
+import Network.Silver.BEncode (BVal(..), key)
+import Network.Silver.Meta (MetaInfo(..))
 
 -- | Abstracts a piece indexed, file delineated binary 
 -- storage mechanism.
@@ -57,11 +65,11 @@ mkBlob (MetaInfo (BDict mi)) =
       q k = M.lookup (key k) inf
       fxs =
         case (q "length", q "files") of
-          (Just (BInt x), Nothing) ->
-            File (BS.unpack name) x : []
+          (Just (BInt x), Nothing) -> File (BS.unpack name) x : []
           (Nothing, Just (BList fs)) -> mkMulti name fs
   in do sequence_ $ map allocFile fxs
         return $ Blob pLen fxs
+mkBlob _ = error "tried to read something bad yo"
 
 -- | Allocate disk space for a File.
 allocFile :: File -> IO ()
@@ -102,8 +110,7 @@ mkPaths _ = []
 --   files does not have at least byte_length byte capacity
 --   byte_offset < 0
 --   byte_length < 0
-fSplit ::
-     [File] -> Integer -> Integer -> [(File, Integer, Integer)]
+fSplit :: [File] -> Integer -> Integer -> [(File, Integer, Integer)]
 fSplit _ _ 0 = []
 fSplit [] _ _ = error "Not enough allocated space!"
 fSplit (f@(File _ len):fs) idx dLen

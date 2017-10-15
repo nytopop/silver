@@ -21,6 +21,7 @@ library
                      , Network.Silver.Peers
                      , Network.Silver.Proto
                      , Network.Silver.Torrent
+                     , Network.Silver.Client
   build-depends:       base >= 4.7 && < 5
                      , bytestring
                      , containers

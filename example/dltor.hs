@@ -14,15 +14,18 @@ module Main where
 --    -h, --help
 --     ; show this message
 --
---
 import qualified Data.ByteString.Char8 as BS
+import Network.Silver.Client (mkClient)
 import Network.Silver.Meta (decodeMeta)
-import Network.Silver.Torrent (newClient, runClient)
+import Network.Silver.Torrent (runClient)
 import System.Environment
 
 main :: IO ()
 main = do
   args <- getArgs
-  bs <- BS.readFile $ head args
-  let (Just meta) = decodeMeta bs
-  newClient meta 8199 >>= runClient
+  src <- BS.readFile $ head args
+  case decodeMeta src of
+    Just meta -> do
+      mkClient meta 8199 >>= runClient
+    Nothing -> do
+      print "meta decodes as Nothing"
