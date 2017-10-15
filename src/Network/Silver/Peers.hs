@@ -22,6 +22,7 @@ import Data.Binary.Get (getWord16be, getWord32be, runGet)
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Word (Word16)
 
 -- Concurrency
 import Control.Concurrent.STM.TVar (readTVar)
@@ -66,6 +67,8 @@ getTrackerPeers c = do
       case (bDecode resp >>= decodeTracker) of
         Just (Fat peerList interval) -> do
           print "fat"
+          let peers = peers0003 peerList
+          print peers
           return (S.empty, 10)
         Just (Compact peerStr interval) -> do
           print "compact"
@@ -84,7 +87,7 @@ getTrackerPeers c = do
               , ("uploaded", Just $ str up)
               , ("downloaded", Just $ str down)
               , ("left", Just $ str left)
-              , ("compact", Just "1")
+              --, ("compact", Nothing)
               ]
             uri = BS.concat [tracker, renderQuery True params]
     TrackerUDP -> return (S.empty, 10)
@@ -120,15 +123,22 @@ decodeTracker (BDict t) =
 decodeTracker _ = Nothing
 
 -- | Parse a BEP 0003 encoded peer list.
-{-
-peers0003 :: BVal -> [Either ByteString SockAddr]
-peers0003 (BList []) = []
-peers0003 (BList [(BDict x):xs]) =
-  let uri = M.lookup (key "ip") x
-      port = M.lookup (key "port") x
-  in a
-peers0003 _ = []
--}
+peers0003 :: [BVal] -> [(ByteString, Word16)]
+peers0003 [] = []
+peers0003 (BDict p:xs) =
+  case M.lookup (key "ip") p of
+    Just (BStr addr) ->
+      case M.lookup (key "port") p of
+        Just (BInt port) ->
+          case port <= 65535 of
+            True ->
+              let port' = fromInteger port :: Word16
+              in (addr, port') : peers0003 xs
+            _ -> peers0003 xs
+        _ -> peers0003 xs
+    _ -> peers0003 xs
+peers0003 (_:xs) = peers0003 xs
+
 -- | Parse a BEP 0023 encoded peer list.
 peers0023 :: BL.ByteString -> [SockAddr]
 peers0023 s
@@ -142,18 +152,3 @@ peers0023 s
         (cur, next) = BL.splitAt 6 s
         (addr, port) = runGet pair cur
     in SockAddrInet (fromIntegral port) addr : peers0023 next
-
--- | Get the peers out of a tracker response.
--- The expected input for this function is the "peers" key
--- of a bencoded response.
---
--- Valid encodings: BEP 0003, BEP 0023
-peersOf :: BVal -> Maybe (Set (Either ByteString SockAddr))
-peersOf (BList xs) = Nothing
-peersOf (BStr s)
-  | mod (BS.length s) 6 /= 0 = Nothing
-  | otherwise =
-    let raw = peers0023 $ BL.fromStrict s
-        peers = fmap (Right) raw
-    in Just $ S.fromList peers
-peersOf _ = Nothing
