@@ -8,7 +8,7 @@ With that said, some example clients will be included in this distribution that 
 ## Support for BEPs
 | BEP # | Title | Status |
 | ----- | ----- | ------ |
-| 0003 | The BitTorrent Protocol Specification | blocked until (0005, 0011, 0012, 0015, 0023)  |
+| 0003 | The BitTorrent Protocol Specification | waiting  |
 | 0005 | DHT Protocol | waiting |
 | 0011 | Peer Exchange (PEX) | waiting |
 | 0012 | Multitracker Metadata Extension | waiting |
