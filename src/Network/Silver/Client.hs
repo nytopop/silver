@@ -8,6 +8,8 @@ Maintainer  :  ericizoita@gmail.com
 Stability   :  experimental
 Portability :  portable
 -}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Network.Silver.Client
   ( Client(..)
   , mkClient
@@ -54,7 +56,7 @@ mkClient :: MetaInfo -> Int -> IO Client
 mkClient meta port = do
   rng <- getStdGen
   let vals = randoms rng :: [Char]
-      myid = BS.concat [BS.pack "qB", BS.pack $ take 18 vals]
+      myid = BS.concat ["qB", BS.pack $ take 18 vals]
   up <- atomically $ newTVar 0
   down <- atomically $ newTVar 0
   left <- atomically $ newTVar 0
