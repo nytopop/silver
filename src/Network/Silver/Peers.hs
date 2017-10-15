@@ -53,9 +53,7 @@ data TrackerResp
             Integer
   | Failure ByteString
 
--- Get peers and re-request delay from a tracker.
---
--- getTrackerPeers client
+-- | Get peers and re-request delay from a tracker.
 getTrackerPeers :: Client -> IO (Set SockAddr, Integer)
 getTrackerPeers c = do
   up <- ar $ clientUploaded c
@@ -63,7 +61,8 @@ getTrackerPeers c = do
   left <- ar $ clientLeft c
   case announceProto tracker of
     TrackerHTTP -> do
-      resp <- getHTTP uri
+      req <- simpleHTTP $ getRequest $ BS.unpack uri
+      resp <- (fmap BS.pack . getResponseBody) req
       case (bDecode resp >>= decodeTracker) of
         Just (Fat peerList interval) -> do
           print "fat"
@@ -76,8 +75,7 @@ getTrackerPeers c = do
           print reason
           return (S.empty, 10)
         Nothing -> do
-          print "nothing"
-          return (S.empty, 10)
+          return (S.empty, 30)
       where str = BS.pack . show
             params =
               [ ("info_hash", Just $ infoHash meta)
@@ -95,6 +93,15 @@ getTrackerPeers c = do
     meta = clientMeta c
     tracker = announce meta
 
+-- | Get the tracker protocol associated with an announce uri.
+announceProto :: ByteString -> TrackerProto
+announceProto uri =
+  if BS.isPrefixOf "http://" uri
+    then TrackerHTTP
+    else if BS.isPrefixOf "udp://" uri
+           then TrackerUDP
+           else TrackerHTTP -- default to http
+
 -- | Ensure that the neccessary keys are present in a tracker
 -- response.
 decodeTracker :: BVal -> Maybe TrackerResp
@@ -111,20 +118,6 @@ decodeTracker (BDict t) =
         _ -> Nothing
     _ -> Nothing
 decodeTracker _ = Nothing
-
--- Get the tracker protocol associated with an announce uri.
-announceProto :: ByteString -> TrackerProto
-announceProto uri =
-  if BS.isPrefixOf "http://" uri
-    then TrackerHTTP
-    else if BS.isPrefixOf "udp://" uri
-           then TrackerUDP
-           else TrackerHTTP -- default to http
-
-getHTTP :: ByteString -> IO ByteString
-getHTTP uri = do
-  req <- simpleHTTP $ getRequest $ BS.unpack uri
-  (fmap BS.pack . getResponseBody) req
 
 -- | Parse a BEP 0003 encoded peer list.
 {-
