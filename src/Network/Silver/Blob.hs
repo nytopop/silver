@@ -25,15 +25,15 @@ import qualified Data.ByteString.Char8 as BS
 
 -- Containers
 import qualified Data.Map.Strict as M
-import Data.Map.Strict (Map, (!))
+import Data.Map.Strict ((!))
 
 -- Filesystem
 import System.Directory (createDirectoryIfMissing)
 import qualified System.FilePath.Posix as SF
 import System.IO
        (FilePath, IOMode(ReadMode, ReadWriteMode, WriteMode),
-        SeekMode(AbsoluteSeek), hClose, hFileSize, hSeek, hSetFileSize,
-        openFile)
+        SeekMode(AbsoluteSeek), hClose, hSeek, hSetFileSize, openFile)
+
 -- Internal
 import Network.Silver.BEncode (BVal(..), key)
 import Network.Silver.Meta (MetaInfo(..))
@@ -66,10 +66,11 @@ mkBlob (MetaInfo (BDict mi)) =
       fxs =
         case (q "length", q "files") of
           (Just (BInt x), Nothing) -> File (BS.unpack name) x : []
-          (Nothing, Just (BList fs)) -> mkMulti name fs
+          (Nothing, Just (BList fs)) -> mkMulti fs
+          _ -> error "blob of invalid metainfo"
   in do sequence_ $ map allocFile fxs
         return $ Blob pLen fxs
-mkBlob _ = error "tried to read something bad yo"
+mkBlob _ = error "tried to read something bad"
 
 -- | Allocate disk space for a File.
 allocFile :: File -> IO ()
@@ -83,13 +84,14 @@ allocFile (File fp fl) =
   in mkDir >> allocF
 
 -- | Make a file list.
-mkMulti :: ByteString -> [BVal] -> [File]
-mkMulti name [] = []
-mkMulti name ((BDict x):xs) =
+mkMulti :: [BVal] -> [File]
+mkMulti [] = []
+mkMulti ((BDict x):xs) =
   let (BInt len) = x ! (key "length")
       (BList paths) = x ! (key "path")
       path = SF.joinPath $ mkPaths paths
-  in File path len : mkMulti name xs
+  in File path len : mkMulti xs
+mkMulti (_:xs) = mkMulti xs
 
 -- | Convert delineated bstrings to file paths.
 mkPaths :: [BVal] -> [FilePath]
@@ -112,7 +114,6 @@ mkPaths _ = []
 --   byte_length < 0
 fSplit :: [File] -> Integer -> Integer -> [(File, Integer, Integer)]
 fSplit _ _ 0 = []
-fSplit [] _ _ = error "Not enough allocated space!"
 fSplit (f@(File _ len):fs) idx dLen
   | idx < 0 = error "Negative index!"
   | dLen < 0 = error "Negative data length!"
@@ -123,6 +124,7 @@ fSplit (f@(File _ len):fs) idx dLen
          True -> (f, idx, dLen) : []
          False -> (f, idx, takeN) : fSplit fs 0 (dLen - takeN)
   | idx >= len = fSplit fs (idx - len) dLen
+fSplit _ _ _ = []
 
 -- | Split a byte string into a list of byte strings of the 
 -- given sizes.
