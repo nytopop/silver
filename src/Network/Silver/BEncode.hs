@@ -23,7 +23,7 @@ module Network.Silver.BEncode
   ) where
 
 -- Control
-import Control.Applicative ((*>), (<$>), (<*), (<*>), (<|>))
+import Control.Applicative ((<|>))
 
 -- Parsing
 import qualified Data.Attoparsec.ByteString.Char8 as A

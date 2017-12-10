@@ -18,9 +18,6 @@ module Network.Silver.Proto
   , Message(..)
   ) where
 
--- Control
-import Control.Applicative ((<$>), (<*>))
-
 -- Binary Data
 import Data.Binary (Binary(..))
 import Data.Binary.Get (Get, getByteString)
