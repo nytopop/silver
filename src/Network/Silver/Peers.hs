@@ -72,7 +72,7 @@ getTrackerPeers c = do
         Just (Compact peerStr interval) -> do
           let peers = peers0023 (BL.fromStrict peerStr)
           return (S.fromList peers, interval)
-        Just (Failure reason) -> do
+        Just (Failure _) -> do
           return (S.empty, 30)
         Nothing -> do
           return (S.empty, 30)
@@ -84,10 +84,11 @@ getTrackerPeers c = do
               , ("uploaded", Just $ str up)
               , ("downloaded", Just $ str down)
               , ("left", Just $ str left)
-              , ("compact", Nothing)
+              , ("numwant", Just $ str 512)
+              --, ("compact", Nothing)
               ]
             uri = BS.concat [tracker, renderQuery True params]
-    TrackerUDP -> return (S.empty, 10)
+    TrackerUDP -> return (S.empty, 30)
   where
     ar = atomically . readTVar
     meta = clientMeta c
@@ -102,40 +103,35 @@ announceProto uri =
            then TrackerUDP
            else TrackerHTTP -- default to http
 
--- | Ensure that the neccessary keys are present in a tracker
+-- | Ensure that the necessary keys are present in a tracker
 -- response.
 decodeTracker :: BVal -> Maybe TrackerResp
 decodeTracker (BDict t) =
-  case M.lookup (key "failure") t of
-    Just (BStr s) -> Just $ Failure s
-    Nothing ->
-      case M.lookup (key "interval") t of
-        Just (BInt interval) ->
-          case M.lookup (key "peers") t of
-            Just (BList peers) -> Just $ Fat peers interval
-            Just (BStr peers) -> Just $ Compact peers interval
-            _ -> Nothing
-        _ -> Nothing
-    _ -> Nothing
+  let q x = M.lookup (key x) t
+  in case (q "failure", q "interval", q "peers") of
+       (Just (BStr s), _, _) -> Just $ Failure s
+       (Nothing, Just (BInt interval), Just (BList peers)) ->
+         Just $ Fat peers interval
+       (Nothing, Just (BInt interval), Just (BStr peers)) ->
+         Just $ Compact peers interval
+       (_, _, _) -> Nothing
 decodeTracker _ = Nothing
 
 -- | Parse a BEP 0003 encoded peer list.
 peers0003 :: [BVal] -> [SockAddr]
 peers0003 [] = []
 peers0003 (BDict p:xs) =
-  case M.lookup (key "ip") p of
-    Just (BStr addr) ->
-      case M.lookup (key "port") p of
-        Just (BInt port) ->
-          case port <= 65535 of
-            True ->
-              let port' = fromInteger port :: Word16
-                  ints = fmap (read . BS.unpack) $ BS.split '.' addr
-                  addr' = (toHostAddress . toIPv4) ints
-              in SockAddrInet (fromIntegral port') addr' : peers0003 xs
-            _ -> peers0003 xs
-        _ -> peers0003 xs
-    _ -> peers0003 xs
+  let q x = M.lookup (key x) p
+  in case (q "ip", q "port") of
+       (Just (BStr addr), Just (BInt port)) ->
+         if port <= 65535
+           then let port' = fromInteger port :: Word16
+                    ints = fmap (read . BS.unpack) $ BS.split '.' addr
+                    addr' = (toHostAddress . toIPv4) ints
+                    sock = SockAddrInet (fromIntegral port') addr'
+                in sock : peers0003 xs
+           else peers0003 xs
+       (_, _) -> peers0003 xs
 peers0003 (_:xs) = peers0003 xs
 
 -- | Parse a BEP 0023 encoded peer list.
