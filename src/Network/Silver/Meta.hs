@@ -63,6 +63,7 @@ announce :: MetaInfo -> ByteString
 announce (MetaInfo (BDict m)) =
   let (BStr uri) = m ! (key "announce")
   in uri
+announce _ = error "announce of invalid metainfo"
 
 -- | Generate a SHA1 info_hash from MetaInfo.
 infoHash :: MetaInfo -> ByteString
@@ -72,6 +73,7 @@ infoHash (MetaInfo (BDict m)) =
       s = bEncode (m ! (key "info"))
       (raw, _) = (decode . BS.pack . show . sha1) s
   in raw
+infoHash _ = error "infoHash of invalid metainfo"
 
 -- | Split a byte string into pieces of length 20.
 split20 :: ByteString -> [ByteString]
@@ -88,6 +90,7 @@ pieceList (MetaInfo (BDict m)) =
   let (BDict inf) = m ! (key "info")
       (BStr pieces) = inf ! (key "pieces")
   in PieceList $ split20 pieces
+pieceList _ = error "pieceList of invalid metainfo"
 
 -- | Decode and validate MetaInfo from a file.
 decodeMetaFile :: String -> IO (Maybe MetaInfo)
@@ -95,7 +98,7 @@ decodeMetaFile f = BS.readFile f >>= \bs -> return $ decodeMeta bs
 
 -- | Decode and validate MetaInfo from a ByteString.
 decodeMeta :: ByteString -> Maybe MetaInfo
-decodeMeta xs =
+decodeMeta xs = 
   let check v =
         if isMetaInfo v
           then Just $ MetaInfo v
@@ -112,15 +115,15 @@ isFileDict :: BVal -> Bool
 isFileDict (BDict f) =
   let l =
         case M.lookup (key "length") f of
-          Nothing -> False
           Just (BInt _) -> True
+          _ -> False
       p =
         case M.lookup (key "path") f of
-          Nothing -> False
           Just (BList []) -> False
           Just (BList xs) ->
             let items = map isBStr xs
             in foldr (&&) True items
+          _ -> False
   in l && p
 isFileDict _ = False
 
@@ -129,26 +132,26 @@ isInfoDict :: BVal -> Bool
 isInfoDict (BDict i) =
   let n =
         case M.lookup (key "name") i of
-          Nothing -> False
           Just (BStr _) -> True
+          _ -> False
       pl =
         case M.lookup (key "piece length") i of
-          Nothing -> False
           Just (BInt _) -> True
+          _ -> False
       p =
         case M.lookup (key "pieces") i of
-          Nothing -> False
           Just (BStr s) -> (BS.length s) `rem` 20 == 0
+          _ -> False
       l =
         case M.lookup (key "length") i of
-          Nothing -> False
           Just (BInt _) -> True
+          _ -> False
       f =
         case M.lookup (key "files") i of
-          Nothing -> False
           Just (BList ld) ->
             let items = map isFileDict ld
             in foldr (&&) True items
+          _ -> False
       xor a b = (a || b) && not (a && b)
   in n && pl && p && (xor l f)
 isInfoDict _ = False
@@ -158,11 +161,11 @@ isMetaInfo :: BVal -> Bool
 isMetaInfo (BDict m) =
   let announce' =
         case M.lookup (key "announce") m of
-          Nothing -> False
           Just (BStr _) -> True
+          _ -> False
       info =
         case M.lookup (key "info") m of
-          Nothing -> False
           Just i -> isInfoDict i
+          _ -> False
   in announce' && info
 isMetaInfo _ = False
