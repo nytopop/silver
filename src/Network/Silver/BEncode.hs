@@ -74,15 +74,15 @@ bVal = bInt <|> bStr <|> bList <|> bDict
 -- | Parse a BInt.
 bInt :: Parser BVal
 bInt = do
-  A.char 'i'
+  _ <- A.char 'i'
   sign <- A.option ' ' (A.char '-')
   val <- A.many1 A.digit
-  A.char 'e'
+  _ <- A.char 'e'
   mkInt sign val
   where
     mkInt ' ' ['0'] = return $ BInt 0
-    mkInt '-' ('0':rst) = fail "Negative zero!"
-    mkInt _ ('0':rst) = fail "Leading zero(s)!"
+    mkInt '-' ('0':_) = fail "Negative zero!"
+    mkInt _ ('0':_) = fail "Leading zero(s)!"
     mkInt '-' nums = return $ BInt $ read ('-' : nums)
     mkInt _ nums = return $ BInt $ read nums
 
@@ -90,7 +90,8 @@ bInt = do
 -- TODO : disallow leading zeroes
 bStr :: Parser BVal
 bStr =
-  let bufP = A.decimal <* A.char ':'
+  let bufP :: Parser Integer
+      bufP = A.decimal <* A.char ':'
       strP = do
         len <- bufP
         A.take (fromIntegral len :: Int)
